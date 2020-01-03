@@ -25,15 +25,9 @@ fn main() -> io::Result<()> {
     let png = png::PNG::new();
     png.read_file("/home/sam-barr/Pictures/bliss.png");
 
-    let image = png
-        .get_image()
-        .flip_vertical()
-        .convert(png::ColorType::Gray())
-        .convert(png::ColorType::RGBAlpha());
-
-    image.write_to_file("out.png");
-
-    return Ok(());
+    let mut image = png.get_image();
+    image.flip_vertical();
+    image.convert(png::ColorType::RGBAlpha());
 
     println!("width: {}", png.get_width());
     println!("height: {}", png.get_height());
@@ -50,7 +44,7 @@ fn main() -> io::Result<()> {
 
             let tex: Texture<Flat, Dim2, NormRGBA8UI> = Texture::new(
                 &mut surface,
-                [image.width, image.height],
+                [image.width as u32, image.height as u32],
                 0,
                 Sampler::default(),
             )
@@ -58,7 +52,7 @@ fn main() -> io::Result<()> {
 
             tex.upload_raw(GenMipmaps::No, &image.data).unwrap();
 
-            main_loop(surface, tex);
+            main_loop(surface, tex, &mut image);
         }
         Err(e) => {
             eprintln!("cannot create graphics surface:\n{}", e);
@@ -69,7 +63,11 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn main_loop(mut surface: GlfwSurface, tex: Texture<Flat, Dim2, NormRGBA8UI>) {
+fn main_loop(
+    mut surface: GlfwSurface,
+    mut tex: Texture<Flat, Dim2, NormRGBA8UI>,
+    image: &mut png::Image,
+) {
     let mut back_buffer = surface.back_buffer().unwrap();
 
     let program = Program::<(), (), ShaderInterface>::from_strings(None, VS, None, FS)
@@ -85,6 +83,7 @@ fn main_loop(mut surface: GlfwSurface, tex: Texture<Flat, Dim2, NormRGBA8UI>) {
         .unwrap();
 
     let mut resize = false;
+    let mut image_changed = false;
 
     'app: loop {
         for event in surface.poll_events() {
@@ -95,6 +94,34 @@ fn main_loop(mut surface: GlfwSurface, tex: Texture<Flat, Dim2, NormRGBA8UI>) {
                 WindowEvent::FramebufferSize(..) => {
                     resize = true;
                 }
+                WindowEvent::Key(Key::F, _, Action::Press, _) => {
+                    image.flip_vertical();
+                    image_changed = true;
+                }
+                WindowEvent::Key(Key::Up, _, action, _) => {
+                    if action != Action::Release {
+                        image.crop(0, 0, 1, 0);
+                        image_changed = true;
+                    }
+                }
+                WindowEvent::Key(Key::Down, _, action, _) => {
+                    if action != Action::Release {
+                        image.crop(0, 0, 0, 1);
+                        image_changed = true;
+                    }
+                }
+                WindowEvent::Key(Key::Left, _, action, _) => {
+                    if action != Action::Release {
+                        image.crop(0, 1, 0, 0);
+                        image_changed = true;
+                    }
+                }
+                WindowEvent::Key(Key::Right, _, action, _) => {
+                    if action != Action::Release {
+                        image.crop(1, 0, 0, 0);
+                        image_changed = true;
+                    }
+                }
                 _ => (),
             }
         }
@@ -102,6 +129,18 @@ fn main_loop(mut surface: GlfwSurface, tex: Texture<Flat, Dim2, NormRGBA8UI>) {
         if resize {
             back_buffer = surface.back_buffer().unwrap();
             resize = false;
+        }
+
+        if image_changed {
+            tex = Texture::new(
+                &mut surface,
+                [image.width as u32, image.height as u32],
+                0,
+                Sampler::default(),
+            )
+            .expect("luminance texture creation failed");
+            tex.upload_raw(GenMipmaps::No, &image.data).unwrap();
+            image_changed = false;
         }
 
         surface.pipeline_builder().pipeline(

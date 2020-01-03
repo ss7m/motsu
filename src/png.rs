@@ -104,15 +104,7 @@ extern "C" {
     fn png_get_color_type(png_struct: *mut c_png_struct, png_info: *mut c_png_info) -> u8;
     fn png_get_rows(png_struct: *mut c_png_struct, png_info: *mut c_png_info) -> *mut *mut u8;
 
-    // ONLY CALL THIS WHEN WRITING TO A FILE
-    // ALL OTHER EDITING SHOULD BE DONE THROUGH THE IMAGE STRUCT
-    // THE ROWS BEING A CONST POINTER IS PROBABLY A BAD CHOICE
-    // BUT THIS WAY I DONT HAVE TO MAKE THE IMAGE MUTABLE
-    fn png_set_rows(
-        png_struct: *mut c_png_struct,
-        png_info: *mut c_png_info,
-        rows: *const *const u8,
-    );
+    fn png_set_rows(png_struct: *mut c_png_struct, png_info: *mut c_png_info, rows: *mut *mut u8);
 
     fn png_set_IHDR(
         png_struct: *mut c_png_struct,
@@ -275,8 +267,8 @@ impl PNG {
             }
 
             Image {
-                height: self.get_height(),
-                width: self.get_width(),
+                height: self.get_height() as usize,
+                width: self.get_width() as usize,
                 color_type,
                 data: rows_vec,
             }
@@ -285,15 +277,15 @@ impl PNG {
 }
 
 pub struct Image {
-    pub height: u32,
-    pub width: u32,
+    pub height: usize,
+    pub width: usize,
     pub color_type: ColorType,
     pub data: Vec<u8>,
 }
 
 impl Image {
     fn row_size(&self) -> usize {
-        (self.width * (self.color_type.num_channels() as u32)) as usize
+        self.width * (self.color_type.num_channels() as usize)
     }
 
     pub fn get_pixel(&self, x: usize, y: usize) -> Pixel {
@@ -323,29 +315,24 @@ impl Image {
         }
     }
 
-    pub fn flip_vertical(&self) -> Image {
+    pub fn flip_vertical(&mut self) {
         let mut data = Vec::new();
         let row_size = self.row_size();
 
         for x in (0..self.height).rev() {
-            let start = x as usize * row_size;
-            let end = (start + row_size) as usize;
+            let start = x * row_size;
+            let end = start + row_size;
             let row = &self.data[start..end];
             data.extend_from_slice(row);
         }
 
-        Image {
-            height: self.height,
-            width: self.width,
-            color_type: self.color_type,
-            data,
-        }
+        self.data = data;
     }
 
-    pub fn convert(&self, color_type: ColorType) -> Image {
+    pub fn convert(&mut self, color_type: ColorType) {
         let mut data = Vec::new();
-        let height = self.height as usize;
-        let width = self.width as usize;
+        let height = self.height;
+        let width = self.width;
 
         for i in 0..height {
             for j in 0..width {
@@ -353,35 +340,81 @@ impl Image {
             }
         }
 
-        Image {
-            height: self.height,
-            width: self.width,
-            color_type,
-            data,
-        }
+        self.color_type = color_type;
+        self.data = data;
     }
 
-    pub fn write_to_file(&self, file_name: &str) {
+    fn crop_left(&mut self, amt: usize) {
+        let mut data = Vec::new();
+        let row_size = self.row_size();
+        let num_channels = self.color_type.num_channels() as usize;
+
+        for i in 0..self.height {
+            let start = i * row_size;
+            let end = start + row_size;
+            let row = &self.data[start + num_channels * amt..end];
+            data.extend_from_slice(row);
+        }
+
+        self.data = data;
+        self.width -= amt;
+    }
+
+    fn crop_right(&mut self, amt: usize) {
+        let mut data = Vec::new();
+        let row_size = self.row_size();
+        let num_channels = self.color_type.num_channels() as usize;
+
+        for i in 0..self.height {
+            let start = i * row_size;
+            let end = start + row_size;
+            let row = &self.data[start..end - num_channels * amt];
+            data.extend_from_slice(row);
+        }
+
+        self.data = data;
+        self.width -= amt;
+    }
+
+    fn crop_top(&mut self, amt: usize) {
+        self.data = self.data[amt * self.row_size()..].to_vec();
+        self.height -= amt;
+    }
+
+    fn crop_bottom(&mut self, amt: usize) {
+        let end = self.height * self.row_size() - amt * self.row_size();
+        self.data = self.data[..end].to_vec();
+        self.height -= amt;
+    }
+
+    pub fn crop(&mut self, left: usize, right: usize, top: usize, bottom: usize) {
+        self.crop_left(left);
+        self.crop_right(right);
+        self.crop_top(top);
+        self.crop_bottom(bottom);
+    }
+
+    pub fn write_to_file(&mut self, file_name: &str) {
         let png_writer = PNG::write_png(file_name);
 
+        let mut data = Vec::new();
+        let row_size = self.row_size();
+
+        for x in 0..self.height {
+            let start = x * row_size;
+            let end = start + row_size;
+            let row = &mut self.data[start..end];
+            data.push(row.as_mut_ptr());
+        }
+
+        let data = data.as_mut_ptr();
+
         unsafe {
-            let mut data = Vec::new();
-            let row_size = self.row_size();
-
-            for x in 0..self.height {
-                let start = x as usize * row_size;
-                let end = (start + row_size) as usize;
-                let mut row = &self.data[start..end];
-                data.push(row.as_ptr());
-            }
-
-            let data = data.as_ptr();
-
             png_set_IHDR(
                 png_writer.png_struct,
                 png_writer.png_info,
-                self.width,
-                self.height,
+                self.width as u32,
+                self.height as u32,
                 8,
                 self.color_type.as_c_int(),
                 PNG_INTERLACE_NONE,
