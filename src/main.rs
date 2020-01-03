@@ -1,5 +1,7 @@
 mod png;
+use std::env;
 use std::io;
+use std::process::exit;
 
 use luminance::blending::{Equation, Factor};
 use luminance::context::GraphicsContext as _;
@@ -11,7 +13,6 @@ use luminance::tess::{Mode, TessBuilder};
 use luminance::texture::{Dim2, Flat, GenMipmaps, Sampler, Texture};
 use luminance_derive::UniformInterface;
 use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowDim, WindowEvent, WindowOpt};
-use std::process::exit;
 
 const VS: &str = include_str!("texture-vs.glsl");
 const FS: &str = include_str!("texture-fs.glsl");
@@ -22,8 +23,14 @@ struct ShaderInterface {
 }
 
 fn main() -> io::Result<()> {
+    let args = env::args().collect::<Vec<_>>();
+    if args.len() < 2 {
+        eprintln!("Need to give input file");
+        exit(1);
+    }
+
     let png = png::PNG::new();
-    png.read_file("/home/sam-barr/Pictures/bliss.png");
+    png.read_file(&args[1]);
 
     let mut image = png.get_image();
     image.flip_vertical();
@@ -58,6 +65,11 @@ fn main() -> io::Result<()> {
             eprintln!("cannot create graphics surface:\n{}", e);
             exit(1);
         }
+    }
+
+    if args.len() >= 3 {
+        image.flip_vertical();
+        image.write_to_file(&args[2]);
     }
 
     Ok(())

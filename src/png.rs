@@ -345,6 +345,10 @@ impl Image {
     }
 
     fn crop_left(&mut self, amt: usize) {
+        if self.width < amt {
+            return;
+        }
+
         let mut data = Vec::new();
         let row_size = self.row_size();
         let num_channels = self.color_type.num_channels() as usize;
@@ -361,6 +365,10 @@ impl Image {
     }
 
     fn crop_right(&mut self, amt: usize) {
+        if self.width < amt {
+            return;
+        }
+
         let mut data = Vec::new();
         let row_size = self.row_size();
         let num_channels = self.color_type.num_channels() as usize;
@@ -377,11 +385,19 @@ impl Image {
     }
 
     fn crop_top(&mut self, amt: usize) {
+        if self.height < amt {
+            return;
+        }
+
         self.data = self.data[amt * self.row_size()..].to_vec();
         self.height -= amt;
     }
 
     fn crop_bottom(&mut self, amt: usize) {
+        if self.height < amt {
+            return;
+        }
+
         let end = self.height * self.row_size() - amt * self.row_size();
         self.data = self.data[..end].to_vec();
         self.height -= amt;
