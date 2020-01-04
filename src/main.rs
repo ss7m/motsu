@@ -11,11 +11,21 @@ use luminance::render_state::RenderState;
 use luminance::shader::program::{Program, Uniform};
 use luminance::tess::{Mode, TessBuilder};
 use luminance::texture::{Dim2, Flat, GenMipmaps, Sampler, Texture};
-use luminance_derive::UniformInterface;
+use luminance_derive::{Semantics, UniformInterface, Vertex};
 use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowDim, WindowEvent, WindowOpt};
 
 const VS: &str = include_str!("texture-vs.glsl");
 const FS: &str = include_str!("texture-fs.glsl");
+
+#[derive(Copy, Clone, Debug, Semantics)]
+pub enum VertexSemantics {
+    #[sem(name = "position", repr = "[f32; 2]", wrapper = "VertexPosition")]
+    Position,
+}
+
+#[derive(Vertex)]
+#[vertex(sem = "VertexSemantics")]
+pub struct Vertex(VertexPosition);
 
 #[derive(UniformInterface)]
 struct ShaderInterface {
@@ -29,8 +39,7 @@ fn main() -> io::Result<()> {
         exit(1);
     }
 
-    let png = png::PNG::new();
-    png.read_file(&args[1]);
+    let png = png::PNG::new(&args[1]);
 
     let mut image = png.get_image();
     image.flip_vertical();
@@ -88,8 +97,14 @@ fn main_loop(
 
     let render_st =
         RenderState::default().set_blending((Equation::Additive, Factor::SrcAlpha, Factor::Zero));
+
     let tess = TessBuilder::new(&mut surface)
-        .set_vertex_nb(4)
+        .add_vertices([
+            Vertex(VertexPosition::new([-0.5, -0.5])),
+            Vertex(VertexPosition::new([-0.5, 0.5])),
+            Vertex(VertexPosition::new([0.5, 0.5])),
+            Vertex(VertexPosition::new([0.5, -0.5])),
+        ])
         .set_mode(Mode::TriangleFan)
         .build()
         .unwrap();

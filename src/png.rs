@@ -157,7 +157,7 @@ impl Drop for PNG {
 }
 
 impl PNG {
-    pub fn new() -> PNG {
+    pub fn new(file_name: &str) -> PNG {
         // TODO: be more smart about error handling
         unsafe {
             let version = CString::new("1.6.37").expect("CString::new failed");
@@ -172,10 +172,13 @@ impl PNG {
             let png_info = png_create_info_struct(png_struct);
             assert!(!png_info.is_null());
 
-            PNG {
+            let mut png = PNG {
                 png_struct,
                 png_info,
-            }
+            };
+
+            png.read_file(file_name);
+            png
         }
     }
 
@@ -232,8 +235,7 @@ impl PNG {
         }
     }
 
-    // TODO: should you have to just put a file name in PNG::new()?
-    pub fn read_file(&self, file_name: &str) {
+    fn read_file(&mut self, file_name: &str) {
         unsafe {
             // TODO: check if png
             // Currently this coerces all channels to 8 bits
@@ -345,7 +347,7 @@ impl Image {
     }
 
     fn crop_left(&mut self, amt: usize) {
-        if self.width < amt {
+        if self.width <= amt {
             return;
         }
 
@@ -365,7 +367,7 @@ impl Image {
     }
 
     fn crop_right(&mut self, amt: usize) {
-        if self.width < amt {
+        if self.width <= amt {
             return;
         }
 
@@ -385,7 +387,7 @@ impl Image {
     }
 
     fn crop_top(&mut self, amt: usize) {
-        if self.height < amt {
+        if self.height <= amt {
             return;
         }
 
@@ -394,7 +396,7 @@ impl Image {
     }
 
     fn crop_bottom(&mut self, amt: usize) {
-        if self.height < amt {
+        if self.height <= amt {
             return;
         }
 
@@ -404,10 +406,12 @@ impl Image {
     }
 
     pub fn crop(&mut self, left: usize, right: usize, top: usize, bottom: usize) {
-        self.crop_left(left);
-        self.crop_right(right);
+        // do left and right last since they're more resource intensive
+        // this way that have to crop less rows
         self.crop_top(top);
         self.crop_bottom(bottom);
+        self.crop_left(left);
+        self.crop_right(right);
     }
 
     pub fn write_to_file(&mut self, file_name: &str) {
@@ -431,7 +435,7 @@ impl Image {
                 png_writer.png_info,
                 self.width as u32,
                 self.height as u32,
-                8,
+                8, // This program only supports a bit depth of 8
                 self.color_type.as_c_int(),
                 PNG_INTERLACE_NONE,
                 PNG_COMPRESSION_TYPE_DEFAULT,
