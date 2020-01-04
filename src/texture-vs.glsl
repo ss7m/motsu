@@ -13,5 +13,8 @@ void main() {
   //vec2 p = QUAD_POS[gl_VertexID];
 
   gl_Position = vec4(position, 0., 1.);
-  v_uv = position * .5 + .5; // transform the position of the vertex into UV space
+
+  float x = position.x > 0 ? 1.0 : 0;
+  float y = position.y > 0 ? 1.0 : 0;
+  v_uv = vec2(x, y);
 }

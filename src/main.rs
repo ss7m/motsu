@@ -23,7 +23,7 @@ pub enum VertexSemantics {
     Position,
 }
 
-#[derive(Vertex)]
+#[derive(Vertex, Debug)]
 #[vertex(sem = "VertexSemantics")]
 pub struct Vertex(VertexPosition);
 
@@ -84,6 +84,37 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
+fn calculate_vertices(
+    image_width: usize,
+    image_height: usize,
+    buffer_width: u32,
+    buffer_height: u32,
+) -> [Vertex; 4] {
+    let image_width: f32 = image_width as f32;
+    let image_height: f32 = image_height as f32;
+    let buffer_width: f32 = buffer_width as f32;
+    let buffer_height: f32 = buffer_height as f32;
+
+    let width_percent = if image_width <= buffer_width {
+        image_width / buffer_width
+    } else {
+        1.0
+    };
+
+    let height_percent = if image_height <= buffer_height {
+        image_height / buffer_height
+    } else {
+        1.0
+    };
+
+    [
+        Vertex(VertexPosition::new([-width_percent, -height_percent])),
+        Vertex(VertexPosition::new([-width_percent, height_percent])),
+        Vertex(VertexPosition::new([width_percent, height_percent])),
+        Vertex(VertexPosition::new([width_percent, -height_percent])),
+    ]
+}
+
 fn main_loop(
     mut surface: GlfwSurface,
     mut tex: Texture<Flat, Dim2, NormRGBA8UI>,
@@ -98,13 +129,13 @@ fn main_loop(
     let render_st =
         RenderState::default().set_blending((Equation::Additive, Factor::SrcAlpha, Factor::Zero));
 
-    let tess = TessBuilder::new(&mut surface)
-        .add_vertices([
-            Vertex(VertexPosition::new([-0.5, -0.5])),
-            Vertex(VertexPosition::new([-0.5, 0.5])),
-            Vertex(VertexPosition::new([0.5, 0.5])),
-            Vertex(VertexPosition::new([0.5, -0.5])),
-        ])
+    let mut tess = TessBuilder::new(&mut surface)
+        .add_vertices(calculate_vertices(
+            image.width,
+            image.height,
+            back_buffer.width(),
+            back_buffer.height(),
+        ))
         .set_mode(Mode::TriangleFan)
         .build()
         .unwrap();
@@ -153,12 +184,20 @@ fn main_loop(
             }
         }
 
-        if resize {
-            back_buffer = surface.back_buffer().unwrap();
-            resize = false;
-        }
+        if resize || image_changed {
+            tess = TessBuilder::new(&mut surface)
+                .add_vertices(calculate_vertices(
+                    image.width,
+                    image.height,
+                    back_buffer.width(),
+                    back_buffer.height(),
+                ))
+                .set_mode(Mode::TriangleFan)
+                .build()
+                .unwrap();
 
-        if image_changed {
+            back_buffer = surface.back_buffer().unwrap();
+
             tex = Texture::new(
                 &mut surface,
                 [image.width as u32, image.height as u32],
@@ -166,7 +205,10 @@ fn main_loop(
                 Sampler::default(),
             )
             .expect("luminance texture creation failed");
+
             tex.upload_raw(GenMipmaps::No, &image.data).unwrap();
+
+            resize = false;
             image_changed = false;
         }
 
