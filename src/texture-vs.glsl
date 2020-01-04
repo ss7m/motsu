@@ -1,3 +1,5 @@
+in vec2 position;
+
 out vec2 v_uv;
 
 const vec2[4] QUAD_POS = vec2[](
@@ -8,8 +10,11 @@ const vec2[4] QUAD_POS = vec2[](
 );
 
 void main() {
-  vec2 p = QUAD_POS[gl_VertexID];
+  //vec2 p = QUAD_POS[gl_VertexID];
 
-  gl_Position = vec4(p, 0., 1.);
-  v_uv = p * .5 + .5; // transform the position of the vertex into UV space
+  gl_Position = vec4(position, 0., 1.);
+
+  float x = position.x > 0 ? 1.0 : 0;
+  float y = position.y > 0 ? 1.0 : 0;
+  v_uv = vec2(x, y);
 }
