@@ -278,6 +278,7 @@ impl PNG {
     }
 }
 
+#[derive(Clone)]
 pub struct Image {
     pub height: usize,
     pub width: usize,
@@ -317,7 +318,7 @@ impl Image {
         }
     }
 
-    pub fn flip_vertical(&mut self) {
+    pub fn flip_vertical(&self) -> Image {
         let mut data = Vec::new();
         let row_size = self.row_size();
 
@@ -328,10 +329,15 @@ impl Image {
             data.extend_from_slice(row);
         }
 
-        self.data = data;
+        Image {
+            height: self.height,
+            width: self.width,
+            color_type: self.color_type,
+            data,
+        }
     }
 
-    pub fn convert(&mut self, color_type: ColorType) {
+    pub fn convert(&self, color_type: ColorType) -> Image {
         let mut data = Vec::new();
         let height = self.height;
         let width = self.width;
@@ -342,13 +348,17 @@ impl Image {
             }
         }
 
-        self.color_type = color_type;
-        self.data = data;
+        Image {
+            height: self.height,
+            width: self.width,
+            color_type,
+            data,
+        }
     }
 
-    fn crop_left(&mut self, amt: usize) {
+    fn crop_left(&self, amt: usize) -> Image {
         if self.width <= amt {
-            return;
+            return self.clone();
         }
 
         let mut data = Vec::new();
@@ -362,13 +372,17 @@ impl Image {
             data.extend_from_slice(row);
         }
 
-        self.data = data;
-        self.width -= amt;
+        Image {
+            height: self.height,
+            width: self.width - amt,
+            color_type: self.color_type,
+            data,
+        }
     }
 
-    fn crop_right(&mut self, amt: usize) {
+    fn crop_right(&self, amt: usize) -> Image {
         if self.width <= amt {
-            return;
+            return self.clone();
         }
 
         let mut data = Vec::new();
@@ -382,39 +396,55 @@ impl Image {
             data.extend_from_slice(row);
         }
 
-        self.data = data;
-        self.width -= amt;
+        Image {
+            height: self.height,
+            width: self.width - amt,
+            color_type: self.color_type,
+            data,
+        }
     }
 
-    fn crop_top(&mut self, amt: usize) {
+    fn crop_top(&self, amt: usize) -> Image {
         if self.height <= amt {
-            return;
+            return self.clone();
         }
 
-        self.data = self.data[amt * self.row_size()..].to_vec();
-        self.height -= amt;
+        let data = self.data[amt * self.row_size()..].to_vec();
+
+        Image {
+            height: self.height - amt,
+            width: self.width,
+            color_type: self.color_type,
+            data,
+        }
     }
 
-    fn crop_bottom(&mut self, amt: usize) {
+    fn crop_bottom(&self, amt: usize) -> Image {
         if self.height <= amt {
-            return;
+            return self.clone();
         }
 
         let end = self.height * self.row_size() - amt * self.row_size();
-        self.data = self.data[..end].to_vec();
-        self.height -= amt;
+        let data = self.data[..end].to_vec();
+
+        Image {
+            height: self.height - amt,
+            width: self.width,
+            color_type: self.color_type,
+            data,
+        }
     }
 
-    pub fn crop(&mut self, left: usize, right: usize, top: usize, bottom: usize) {
+    pub fn crop(&self, left: usize, right: usize, top: usize, bottom: usize) -> Image {
         // do left and right last since they're more resource intensive
         // this way that have to crop less rows
-        self.crop_top(top);
-        self.crop_bottom(bottom);
-        self.crop_left(left);
-        self.crop_right(right);
+        self.crop_top(top)
+            .crop_bottom(bottom)
+            .crop_left(left)
+            .crop_right(right)
     }
 
-    pub fn write_to_file(&mut self, file_name: &str) {
+    pub fn write_to_file(mut self, file_name: &str) {
         let png_writer = PNG::write_png(file_name);
 
         let mut data = Vec::new();

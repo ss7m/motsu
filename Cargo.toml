@@ -8,7 +8,8 @@ edition = "2018"
 
 [dependencies]
 libc = "0.2"
-luminance = "0.37"
+luminance = "0.38"
 luminance-derive = "0.5"
 luminance-windowing = "0.8"
-luminance-glfw = "0.11"
+luminance-glfw = "0.12"
+glfw = "0.34"
