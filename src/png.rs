@@ -1,9 +1,8 @@
 #![allow(dead_code)]
 extern crate libc;
-use libc::{c_char, c_int, c_void, size_t, FILE};
+use libc::{c_char, c_int, c_void, fopen, fread, size_t, FILE};
 use std::ffi::CString;
-use std::fs::File;
-use std::io::prelude::*;
+use std::mem;
 use std::ptr;
 use std::slice;
 
@@ -64,9 +63,8 @@ type c_png_info = c_void;
 
 #[link(name = "png")]
 extern "C" {
-    fn fopen(file_name: *const c_char, mode: *const c_char) -> *mut FILE;
-
     fn png_sig_cmp(sig: *const u8, start: size_t, num_to_check: size_t) -> c_int;
+    fn png_set_sig_bytes(png_struct: *mut c_png_struct, num_bytes: c_int);
     fn png_create_read_struct(
         version: *const c_char,
         error_ptr: *mut u8,
@@ -126,21 +124,13 @@ extern "C" {
     );
 }
 
-fn check_if_png(file: &File) -> bool {
-    let mut bytes = Vec::new();
-    let mut file_bytes = file.bytes();
-
-    for _ in 0..8 {
-        match file_bytes.next() {
-            None => return false,
-            Some(b) => match b {
-                Err(_) => return false,
-                Ok(byte) => bytes.push(byte),
-            },
-        }
+fn check_if_png(file: *mut FILE) -> bool {
+    let mut bytes: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
+    let bytes = bytes.as_mut_ptr();
+    unsafe {
+        fread(mem::transmute(bytes), 1, 8, file);
+        png_sig_cmp(bytes, 0, 8) == 0
     }
-
-    unsafe { png_sig_cmp(bytes.as_ptr(), 0, 8) == 0 }
 }
 
 pub struct PNG {
@@ -157,8 +147,7 @@ impl Drop for PNG {
 }
 
 impl PNG {
-    pub fn new(file_name: &str) -> PNG {
-        // TODO: be more smart about error handling
+    pub fn new(file_name: &str) -> Result<PNG, String> {
         unsafe {
             let version = CString::new("1.6.37").expect("CString::new failed");
             let png_struct = png_create_read_struct(
@@ -167,18 +156,27 @@ impl PNG {
                 ptr::null_mut(),
                 ptr::null_mut(),
             );
-            assert!(!png_struct.is_null());
+
+            if png_struct.is_null() {
+                return Err("Error creating png struct".to_string());
+            }
 
             let png_info = png_create_info_struct(png_struct);
-            assert!(!png_info.is_null());
+
+            if png_info.is_null() {
+                return Err("Error creating info struct".to_string());
+            }
 
             let mut png = PNG {
                 png_struct,
                 png_info,
             };
 
-            png.read_file(file_name);
-            png
+            if png.read_file(file_name) {
+                Ok(png)
+            } else {
+                Err(format!("{} is not a png file", file_name))
+            }
         }
     }
 
@@ -235,14 +233,19 @@ impl PNG {
         }
     }
 
-    fn read_file(&mut self, file_name: &str) {
+    fn read_file(&mut self, file_name: &str) -> bool {
         unsafe {
-            // TODO: check if png
             // Currently this coerces all channels to 8 bits
             let file_name = CString::new(file_name).expect("CString::new failed");
             let mode = CString::new("rb").expect("CString::new failed");
             let filep = fopen(file_name.as_ptr(), mode.as_ptr());
+
+            if !check_if_png(filep) {
+                return false;
+            }
+
             png_init_io(self.png_struct, filep);
+            png_set_sig_bytes(self.png_struct, 8);
             png_read_png(
                 self.png_struct,
                 self.png_info,
@@ -250,6 +253,8 @@ impl PNG {
                 ptr::null_mut(),
             );
         }
+
+        true
     }
 
     pub fn get_image(&self) -> Image {
@@ -337,6 +342,8 @@ impl Image {
         }
     }
 
+    // This is broken but in a fun way
+    // Need to reverse reach row pixel by pixel
     pub fn flip_horizontal(&self) -> Image {
         let mut data = Vec::new();
         let row_size = self.row_size();

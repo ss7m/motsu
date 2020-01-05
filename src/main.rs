@@ -1,4 +1,5 @@
 mod png;
+use std::cmp::min;
 use std::env;
 use std::io;
 use std::process::exit;
@@ -43,7 +44,13 @@ fn main() -> io::Result<()> {
         exit(1);
     }
 
-    let png = png::PNG::new(&args[1]);
+    let png = match png::PNG::new(&args[1]) {
+        Ok(png) => png,
+        Err(msg) => {
+            eprintln!("{}", msg);
+            exit(1)
+        }
+    };
 
     let mut image = png.get_image();
     image = image.convert(png::ColorType::RGBAlpha());
@@ -224,6 +231,11 @@ fn main_loop(mut surface: GlfwSurface, image: png::Image) -> png::Image {
                 _ => (),
             }
         }
+
+        crop_amt_left = min(crop_amt_left, image.width);
+        crop_amt_right = min(crop_amt_right, image.width);
+        crop_amt_top = min(crop_amt_top, image.height);
+        crop_amt_bottom = min(crop_amt_bottom, image.height);
 
         if redraw {
             display_image =
