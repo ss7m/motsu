@@ -49,9 +49,6 @@ fn main() -> io::Result<()> {
     image = image.flip_vertical();
     image = image.convert(png::ColorType::RGBAlpha());
 
-    println!("width: {}", png.get_width());
-    println!("height: {}", png.get_height());
-
     let surface = GlfwSurface::new(
         WindowDim::Windowed(960, 540),
         "Hello, World!",
@@ -60,7 +57,6 @@ fn main() -> io::Result<()> {
 
     match surface {
         Ok(surface) => {
-            eprintln!("graphics surface created");
             image = main_loop(surface, image);
             if args.len() > 2 {
                 image = image.flip_vertical();
@@ -151,58 +147,78 @@ fn main_loop(mut surface: GlfwSurface, image: png::Image) -> png::Image {
                 WindowEvent::FramebufferSize(..) => {
                     redraw = true;
                 }
-                WindowEvent::Key(Key::Up, _, action, modifier) => {
+                WindowEvent::Key(Key::Up, _, action, modifiers) => {
                     if action != Action::Release {
-                        if modifier.contains(Modifiers::Shift) {
-                            crop_amt_top = if crop_amt_top == 0 {
+                        let delta = if modifiers.contains(Modifiers::Control) {
+                            10
+                        } else {
+                            1
+                        };
+                        if modifiers.contains(Modifiers::Shift) {
+                            crop_amt_top = if crop_amt_top <= delta {
                                 0
                             } else {
-                                crop_amt_top - 1
+                                crop_amt_top - delta
                             };
                         } else {
-                            crop_amt_bottom += 1;
+                            crop_amt_bottom += delta;
                         }
                         redraw = true;
                     }
                 }
-                WindowEvent::Key(Key::Down, _, action, modifier) => {
+                WindowEvent::Key(Key::Down, _, action, modifiers) => {
                     if action != Action::Release {
-                        if modifier.contains(Modifiers::Shift) {
-                            crop_amt_bottom = if crop_amt_bottom == 0 {
+                        let delta = if modifiers.contains(Modifiers::Control) {
+                            10
+                        } else {
+                            1
+                        };
+                        if modifiers.contains(Modifiers::Shift) {
+                            crop_amt_bottom = if crop_amt_bottom <= delta {
                                 0
                             } else {
-                                crop_amt_bottom - 1
+                                crop_amt_bottom - delta
                             };
                         } else {
-                            crop_amt_top += 1;
+                            crop_amt_top += delta;
                         }
                         redraw = true;
                     }
                 }
-                WindowEvent::Key(Key::Left, _, action, modifier) => {
+                WindowEvent::Key(Key::Left, _, action, modifiers) => {
                     if action != Action::Release {
-                        if modifier.contains(Modifiers::Shift) {
-                            crop_amt_left = if crop_amt_left == 0 {
+                        let delta = if modifiers.contains(Modifiers::Control) {
+                            10
+                        } else {
+                            1
+                        };
+                        if modifiers.contains(Modifiers::Shift) {
+                            crop_amt_left = if crop_amt_left <= delta {
                                 0
                             } else {
-                                crop_amt_left - 1
+                                crop_amt_left - delta
                             };
                         } else {
-                            crop_amt_right += 1;
+                            crop_amt_right += delta;
                         }
                         redraw = true;
                     }
                 }
-                WindowEvent::Key(Key::Right, _, action, modifier) => {
+                WindowEvent::Key(Key::Right, _, action, modifiers) => {
                     if action != Action::Release {
-                        if modifier.contains(Modifiers::Shift) {
-                            crop_amt_right = if crop_amt_right == 0 {
+                        let delta = if modifiers.contains(Modifiers::Control) {
+                            10
+                        } else {
+                            1
+                        };
+                        if modifiers.contains(Modifiers::Shift) {
+                            crop_amt_right = if crop_amt_right <= delta {
                                 0
                             } else {
-                                crop_amt_right - 1
+                                crop_amt_right - delta
                             };
                         } else {
-                            crop_amt_left += 1;
+                            crop_amt_left += delta;
                         }
                         redraw = true;
                     }
