@@ -2,7 +2,6 @@ mod png;
 use png::{ColorType, Image, PNG};
 use std::cmp::min;
 use std::env;
-use std::io;
 use std::process::exit;
 
 use glfw::Modifiers;
@@ -38,7 +37,7 @@ struct ShaderInterface {
     tex: Uniform<&'static BoundTexture<'static, Flat, Dim2, NormUnsigned>>,
 }
 
-fn main() -> io::Result<()> {
+fn main() {
     let args = env::args().collect::<Vec<_>>();
     if args.len() < 2 {
         eprintln!("Need to give input file");
@@ -74,8 +73,6 @@ fn main() -> io::Result<()> {
             exit(1);
         }
     }
-
-    Ok(())
 }
 
 fn calculate_vertices(

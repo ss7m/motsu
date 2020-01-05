@@ -174,13 +174,13 @@ impl PNG {
             if png.read_file(file_name) {
                 Ok(png)
             } else {
-                Err(format!("{} is not a png file", file_name))
+                Err(format!("{} is not a png file or does not exist", file_name))
             }
         }
     }
 
     // TODO: make a separate struct for writing png?
-    fn write_png(file_name: &str) -> PNG {
+    fn write_png(file_name: &str) -> Result<PNG, String> {
         unsafe {
             let version = CString::new("1.6.37").expect("CString::new failed");
             let png_struct = png_create_write_struct(
@@ -189,20 +189,29 @@ impl PNG {
                 ptr::null_mut(),
                 ptr::null_mut(),
             );
-            assert!(!png_struct.is_null());
+
+            if png_struct.is_null() {
+                return Err("Error creating png struct".to_string());
+            }
 
             let png_info = png_create_info_struct(png_struct);
-            assert!(!png_info.is_null());
 
-            let file_name = CString::new(file_name).expect("CString::new failed");
+            if png_info.is_null() {
+                return Err("Error getting png info".to_string());
+            }
+
+            let c_file_name = CString::new(file_name).expect("CString::new failed");
             let mode = CString::new("wb").expect("CString::new failed");
-            let filep = fopen(file_name.as_ptr(), mode.as_ptr());
+            let filep = fopen(c_file_name.as_ptr(), mode.as_ptr());
+            if filep.is_null() {
+                return Err(format!("Error opening file for writing: {}", file_name));
+            }
             png_init_io(png_struct, filep);
 
-            PNG {
+            Ok(PNG {
                 png_struct,
                 png_info,
-            }
+            })
         }
     }
 
@@ -239,7 +248,7 @@ impl PNG {
             let mode = CString::new("rb").expect("CString::new failed");
             let filep = fopen(file_name.as_ptr(), mode.as_ptr());
 
-            if !check_if_png(filep) {
+            if filep.is_null() || !check_if_png(filep) {
                 return false;
             }
 
@@ -471,7 +480,13 @@ impl Image {
     }
 
     pub fn write_to_file(mut self, file_name: &str) {
-        let png_writer = PNG::write_png(file_name);
+        let png_writer = match PNG::write_png(file_name) {
+            Ok(png) => png,
+            Err(msg) => {
+                println!("Error writing image to file:\n{}", msg);
+                return;
+            }
+        };
 
         let mut data = Vec::new();
         let row_size = self.row_size();
