@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use libc::{c_char, c_int, c_void, fopen, fread, size_t, FILE};
+use libc::{c_char, c_int, c_void, fclose, fopen, fread, size_t, FILE};
 use std::ffi::CString;
 use std::mem;
 use std::ptr;
@@ -127,7 +127,8 @@ fn check_if_png(file: *mut FILE) -> bool {
     let mut bytes: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
     let bytes = bytes.as_mut_ptr();
     unsafe {
-        fread(mem::transmute(bytes), 1, 8, file);
+        //fread(mem::transmute(bytes), 1, 8, file);
+        fread(bytes as *mut c_void, 1, 8, file);
         png_sig_cmp(bytes, 0, 8) == 0
     }
 }
@@ -135,12 +136,18 @@ fn check_if_png(file: *mut FILE) -> bool {
 pub struct PNG {
     png_struct: *mut c_png_struct,
     png_info: *mut c_png_info,
+    filep: Option<*mut FILE>,
 }
 
 impl Drop for PNG {
     fn drop(&mut self) {
         unsafe {
             png_destroy_read_struct(&mut self.png_struct, &mut self.png_info, ptr::null_mut());
+            if let Some(filep) = self.filep {
+                if !filep.is_null() {
+                    fclose(filep);
+                }
+            }
         }
     }
 }
@@ -169,6 +176,7 @@ impl PNG {
             let mut png = PNG {
                 png_struct,
                 png_info,
+                filep: None,
             };
 
             if png.read_file(file_name) {
@@ -211,6 +219,7 @@ impl PNG {
             Ok(PNG {
                 png_struct,
                 png_info,
+                filep: Some(filep),
             })
         }
     }
@@ -248,9 +257,14 @@ impl PNG {
             let mode = CString::new("rb").expect("CString::new failed");
             let filep = fopen(file_name.as_ptr(), mode.as_ptr());
 
-            if filep.is_null() || !check_if_png(filep) {
+            if filep.is_null() {
+                return false;
+            } else if !check_if_png(filep) {
+                fclose(filep);
                 return false;
             }
+
+            self.filep = Some(filep);
 
             png_init_io(self.png_struct, filep);
             png_set_sig_bytes(self.png_struct, 8);
