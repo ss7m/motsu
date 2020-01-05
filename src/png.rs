@@ -337,6 +337,26 @@ impl Image {
         }
     }
 
+    pub fn flip_horizontal(&self) -> Image {
+        let mut data = Vec::new();
+        let row_size = self.row_size();
+
+        for x in 0..self.height {
+            let start = x * row_size;
+            let end = start + row_size;
+            let mut row = self.data[start..end].to_vec();
+            row.reverse();
+            data.append(&mut row);
+        }
+
+        Image {
+            height: self.height,
+            width: self.width,
+            color_type: self.color_type,
+            data,
+        }
+    }
+
     pub fn convert(&self, color_type: ColorType) -> Image {
         let mut data = Vec::new();
         let height = self.height;

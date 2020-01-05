@@ -46,7 +46,6 @@ fn main() -> io::Result<()> {
     let png = png::PNG::new(&args[1]);
 
     let mut image = png.get_image();
-    image = image.flip_vertical();
     image = image.convert(png::ColorType::RGBAlpha());
 
     let surface = GlfwSurface::new(
@@ -59,7 +58,6 @@ fn main() -> io::Result<()> {
         Ok(surface) => {
             image = main_loop(surface, image);
             if args.len() > 2 {
-                image = image.flip_vertical();
                 image.write_to_file(&args[2]);
             }
         }
@@ -229,7 +227,7 @@ fn main_loop(mut surface: GlfwSurface, image: png::Image) -> png::Image {
 
         if redraw {
             display_image =
-                image.crop(crop_amt_left, crop_amt_right, crop_amt_bottom, crop_amt_top);
+                image.crop(crop_amt_left, crop_amt_right, crop_amt_top, crop_amt_bottom);
 
             tess = TessBuilder::new(&mut surface)
                 .add_vertices(calculate_vertices(
