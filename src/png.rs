@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-extern crate libc;
 use libc::{c_char, c_int, c_void, fopen, fread, size_t, FILE};
 use std::ffi::CString;
 use std::mem;

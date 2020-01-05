@@ -1,4 +1,5 @@
 mod png;
+use png::{ColorType, Image, PNG};
 use std::cmp::min;
 use std::env;
 use std::io;
@@ -44,7 +45,7 @@ fn main() -> io::Result<()> {
         exit(1);
     }
 
-    let png = match png::PNG::new(&args[1]) {
+    let png = match PNG::new(&args[1]) {
         Ok(png) => png,
         Err(msg) => {
             eprintln!("{}", msg);
@@ -53,7 +54,7 @@ fn main() -> io::Result<()> {
     };
 
     let mut image = png.get_image();
-    image = image.convert(png::ColorType::RGBAlpha());
+    image = image.convert(ColorType::RGBAlpha());
 
     let surface = GlfwSurface::new(
         WindowDim::Windowed(960, 540),
@@ -108,7 +109,7 @@ fn calculate_vertices(
     ]
 }
 
-fn main_loop(mut surface: GlfwSurface, image: png::Image) -> png::Image {
+fn main_loop(mut surface: GlfwSurface, image: Image) -> Image {
     // setup for loop
     let mut display_image = image.clone();
     let mut redraw = false;
