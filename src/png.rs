@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 use libc::{c_char, c_int, c_void, fclose, fopen, fread, size_t, FILE};
 use std::ffi::CString;
-use std::mem;
 use std::ptr;
 use std::slice;
 
