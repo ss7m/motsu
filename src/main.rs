@@ -54,7 +54,12 @@ fn main() {
 
     let image = png.get_image().convert(ColorType::RGBAlpha());
 
-    let surface = GlfwSurface::new(WindowDim::Windowed(400, 400), "PNG", WindowOpt::default());
+    let surface = GlfwSurface::new(
+        WindowDim::Windowed(image.width as u32, image.height as u32),
+        "PNG",
+        WindowOpt::default(),
+    );
+
     match surface {
         Ok(surface) => {
             let image = main_loop(surface, image);
