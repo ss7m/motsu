@@ -126,7 +126,6 @@ fn check_if_png(file: *mut FILE) -> bool {
     let mut bytes: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
     let bytes = bytes.as_mut_ptr();
     unsafe {
-        //fread(mem::transmute(bytes), 1, 8, file);
         fread(bytes as *mut c_void, 1, 8, file);
         png_sig_cmp(bytes, 0, 8) == 0
     }
@@ -153,60 +152,62 @@ impl Drop for PNG {
 
 impl PNG {
     pub fn new(file_name: &str) -> Result<PNG, String> {
-        unsafe {
+        let png_struct = unsafe {
             let version = CString::new("1.6.37").expect("CString::new failed");
-            let png_struct = png_create_read_struct(
+            png_create_read_struct(
                 version.as_ptr(),
                 ptr::null_mut(),
                 ptr::null_mut(),
                 ptr::null_mut(),
-            );
+            )
+        };
 
-            if png_struct.is_null() {
-                return Err("Error creating png struct".to_string());
-            }
+        if png_struct.is_null() {
+            return Err("Error creating png struct".to_string());
+        }
 
-            let png_info = png_create_info_struct(png_struct);
+        let png_info = unsafe { png_create_info_struct(png_struct) };
 
-            if png_info.is_null() {
-                return Err("Error creating info struct".to_string());
-            }
+        if png_info.is_null() {
+            return Err("Error creating onfo struct".to_string());
+        }
 
-            let mut png = PNG {
-                png_struct,
-                png_info,
-                filep: None,
-            };
+        let mut png = PNG {
+            png_struct,
+            png_info,
+            filep: None,
+        };
 
-            if png.read_file(file_name) {
-                Ok(png)
-            } else {
-                Err(format!("{} is not a png file or does not exist", file_name))
-            }
+        if png.read_file(file_name) {
+            Ok(png)
+        } else {
+            Err(format!("{} is not a png file or does not exist", file_name))
         }
     }
 
     // TODO: make a separate struct for writing png?
     fn write_png(file_name: &str) -> Result<PNG, String> {
-        unsafe {
+        let png_struct = unsafe {
             let version = CString::new("1.6.37").expect("CString::new failed");
-            let png_struct = png_create_write_struct(
+            png_create_write_struct(
                 version.as_ptr(),
                 ptr::null_mut(),
                 ptr::null_mut(),
                 ptr::null_mut(),
-            );
+            )
+        };
 
-            if png_struct.is_null() {
-                return Err("Error creating png struct".to_string());
-            }
+        if png_struct.is_null() {
+            return Err("Error creating png struct".to_string());
+        }
 
-            let png_info = png_create_info_struct(png_struct);
+        let png_info = unsafe { png_create_info_struct(png_struct) };
 
-            if png_info.is_null() {
-                return Err("Error getting png info".to_string());
-            }
+        if png_info.is_null() {
+            return Err("Error getting png info".to_string());
+        }
 
+        let filep = unsafe {
             let c_file_name = CString::new(file_name).expect("CString::new failed");
             let mode = CString::new("wb").expect("CString::new failed");
             let filep = fopen(c_file_name.as_ptr(), mode.as_ptr());
@@ -214,13 +215,14 @@ impl PNG {
                 return Err(format!("Error opening file for writing: {}", file_name));
             }
             png_init_io(png_struct, filep);
+            filep
+        };
 
-            Ok(PNG {
-                png_struct,
-                png_info,
-                filep: Some(filep),
-            })
-        }
+        Ok(PNG {
+            png_struct,
+            png_info,
+            filep: Some(filep),
+        })
     }
 
     pub fn get_width(&self) -> u32 {
@@ -250,21 +252,25 @@ impl PNG {
     }
 
     fn read_file(&mut self, file_name: &str) -> bool {
-        unsafe {
+        let filep = unsafe {
             // Currently this coerces all channels to 8 bits
             let file_name = CString::new(file_name).expect("CString::new failed");
             let mode = CString::new("rb").expect("CString::new failed");
-            let filep = fopen(file_name.as_ptr(), mode.as_ptr());
+            fopen(file_name.as_ptr(), mode.as_ptr())
+        };
 
-            if filep.is_null() {
-                return false;
-            } else if !check_if_png(filep) {
+        if filep.is_null() {
+            return false;
+        } else if !check_if_png(filep) {
+            unsafe {
                 fclose(filep);
-                return false;
             }
+            return false;
+        }
 
-            self.filep = Some(filep);
+        self.filep = Some(filep);
 
+        unsafe {
             png_init_io(self.png_struct, filep);
             png_set_sig_bytes(self.png_struct, 8);
             png_read_png(
@@ -279,27 +285,27 @@ impl PNG {
     }
 
     pub fn get_image(&self) -> Image {
-        unsafe {
-            let color_type = self.get_color_type();
-            let num_channels = color_type.num_channels();
-            //let bit_depth = self.get_bit_depth();
+        let color_type = self.get_color_type();
+        let num_channels = color_type.num_channels();
+        //let bit_depth = self.get_bit_depth();
 
+        let rows = unsafe {
             let rows = png_get_rows(self.png_struct, self.png_info);
-            let rows = slice::from_raw_parts(rows, self.get_height() as usize);
-            let mut rows_vec = Vec::new();
-            let row_size = (self.get_width() * (num_channels as u32)) as usize;
-            for &row in rows {
-                for item in slice::from_raw_parts(row, row_size).to_vec() {
-                    rows_vec.push(item);
-                }
+            slice::from_raw_parts(rows, self.get_height() as usize)
+        };
+        let mut rows_vec = Vec::new();
+        let row_size = (self.get_width() * (num_channels as u32)) as usize;
+        for &row in rows {
+            for item in unsafe { slice::from_raw_parts(row, row_size).to_vec() } {
+                rows_vec.push(item);
             }
+        }
 
-            Image {
-                height: self.get_height() as usize,
-                width: self.get_width() as usize,
-                color_type,
-                data: rows_vec,
-            }
+        Image {
+            height: self.get_height() as usize,
+            width: self.get_width() as usize,
+            color_type,
+            data: rows_vec,
         }
     }
 }
