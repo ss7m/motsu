@@ -351,7 +351,7 @@ impl Image {
     }
 
     pub fn flip_vertical(&self) -> Image {
-        let mut data = Vec::new();
+        let mut data = Vec::with_capacity(self.width * self.height);
         let row_size = self.row_size();
 
         for x in (0..self.height).rev() {
@@ -372,7 +372,7 @@ impl Image {
     // This is broken but in a fun way
     // Need to reverse reach row pixel by pixel
     pub fn flip_horizontal(&self) -> Image {
-        let mut data = Vec::new();
+        let mut data = Vec::with_capacity(self.width * self.height);
         let row_size = self.row_size();
 
         for x in 0..self.height {
@@ -392,7 +392,7 @@ impl Image {
     }
 
     pub fn convert(&self, color_type: ColorType) -> Image {
-        let mut data = Vec::new();
+        let mut data = Vec::with_capacity(self.width * self.height);
         let height = self.height;
         let width = self.width;
 
@@ -415,7 +415,7 @@ impl Image {
             return self.clone();
         }
 
-        let mut data = Vec::new();
+        let mut data = Vec::with_capacity(self.width * self.height);
         let row_size = self.row_size();
         let num_channels = self.color_type.num_channels() as usize;
 
@@ -439,7 +439,7 @@ impl Image {
             return self.clone();
         }
 
-        let mut data = Vec::new();
+        let mut data = Vec::with_capacity(self.width * self.height);
         let row_size = self.row_size();
         let num_channels = self.color_type.num_channels() as usize;
 
@@ -507,7 +507,7 @@ impl Image {
             }
         };
 
-        let mut data = Vec::new();
+        let mut data = Vec::with_capacity(self.height);
         let row_size = self.row_size();
 
         for x in 0..self.height {
