@@ -140,8 +140,8 @@ fn main_loop(mut surface: GlfwSurface, image: Image) -> Image {
         .unwrap();
 
     'app: loop {
-        //for event in surface.poll_events() {
-        for event in surface.wait_events() {
+        for event in surface.poll_events() {
+            //for event in surface.wait_events() {
             match event {
                 WindowEvent::Close | WindowEvent::Key(Key::Escape, _, Action::Release, _) => {
                     break 'app
