@@ -156,7 +156,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image) -> Image {
     let mut tex = make_texture(&mut surface, &display_image);
     let mut back_buffer = surface.back_buffer().unwrap();
     let program = Program::<(), (), ShaderInterface>::from_strings(None, VS, None, FS)
-        .expect("AAAAAAAHHHHHHHHHHHH")
+        .expect("Program failed")
         .ignore_warnings();
     let render_st =
         RenderState::default().set_blending((Equation::Additive, Factor::SrcAlpha, Factor::Zero));
