@@ -2,12 +2,12 @@ in vec2 position;
 
 out vec2 v_uv;
 
-const vec2[4] QUAD_POS = vec2[](
-  vec2(-1., -1.),
-  vec2( 1., -1.),
-  vec2( 1.,  1.),
-  vec2(-1.,  1.)
-);
+//const vec2[4] QUAD_POS = vec2[](
+//  vec2(-1., -1.),
+//  vec2( 1., -1.),
+//  vec2( 1.,  1.),
+//  vec2(-1.,  1.)
+//);
 
 void main() {
   //vec2 p = QUAD_POS[gl_VertexID];

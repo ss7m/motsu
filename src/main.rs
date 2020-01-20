@@ -11,7 +11,7 @@ use luminance::pipeline::{BoundTexture, PipelineState};
 use luminance::pixel::{NormRGBA8UI, NormUnsigned};
 use luminance::render_state::RenderState;
 use luminance::shader::program::{Program, Uniform};
-use luminance::tess::{Mode, TessBuilder};
+use luminance::tess::{Mode, Tess, TessBuilder};
 use luminance::texture::{Dim2, Flat, GenMipmaps, Sampler, Texture};
 use luminance_derive::{Semantics, UniformInterface, Vertex};
 use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowDim, WindowEvent, WindowOpt};
@@ -105,39 +105,62 @@ fn calculate_vertices(
     ]
 }
 
-fn main_loop(mut surface: GlfwSurface, image: Image) -> Image {
-    // setup for loop
-    let mut display_image = image.clone();
-    let mut redraw = false;
-    let mut crop_amt_left = 0;
-    let mut crop_amt_right = 0;
-    let mut crop_amt_top = 0;
-    let mut crop_amt_bottom = 0;
-    let mut tex: Texture<Flat, Dim2, NormRGBA8UI> = Texture::new(
-        &mut surface,
+fn make_texture(
+    surface: &mut GlfwSurface,
+    display_image: &Image,
+) -> Texture<Flat, Dim2, NormRGBA8UI> {
+    let tex = Texture::new(
+        surface,
         [display_image.width as u32, display_image.height as u32],
         0,
         Sampler::default(),
     )
     .expect("luminance texture creation failed");
     tex.upload_raw(GenMipmaps::No, &display_image.data).unwrap();
+    tex
+}
 
+fn make_tess(surface: &mut GlfwSurface, display_image: &Image) -> Tess {
+    let width = surface.width();
+    let height = surface.height();
+    TessBuilder::new(surface)
+        .add_vertices(calculate_vertices(
+            display_image.width,
+            display_image.height,
+            width,
+            height,
+        ))
+        .set_mode(Mode::TriangleFan)
+        .build()
+        .unwrap()
+}
+
+fn calculate_delta(modifiers: Modifiers) -> usize {
+    if modifiers.contains(Modifiers::Control) {
+        10
+    } else {
+        1
+    }
+}
+
+fn main_loop(mut surface: GlfwSurface, image: Image) -> Image {
+    // setup for loop
+
+    let mut display_image = image.clone();
+    let mut redraw = false;
+    let mut crop_amt_left = 0;
+    let mut crop_amt_right = 0;
+    let mut crop_amt_top = 0;
+    let mut crop_amt_bottom = 0;
+
+    let mut tex = make_texture(&mut surface, &display_image);
     let mut back_buffer = surface.back_buffer().unwrap();
     let program = Program::<(), (), ShaderInterface>::from_strings(None, VS, None, FS)
         .expect("AAAAAAAHHHHHHHHHHHH")
         .ignore_warnings();
     let render_st =
         RenderState::default().set_blending((Equation::Additive, Factor::SrcAlpha, Factor::Zero));
-    let mut tess = TessBuilder::new(&mut surface)
-        .add_vertices(calculate_vertices(
-            display_image.width,
-            display_image.height,
-            back_buffer.width(),
-            back_buffer.height(),
-        ))
-        .set_mode(Mode::TriangleFan)
-        .build()
-        .unwrap();
+    let mut tess = make_tess(&mut surface, &display_image);
 
     'app: loop {
         for event in surface.poll_events() {
@@ -151,11 +174,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image) -> Image {
                 }
                 WindowEvent::Key(Key::Up, _, action, modifiers) => {
                     if action != Action::Release {
-                        let delta = if modifiers.contains(Modifiers::Control) {
-                            10
-                        } else {
-                            1
-                        };
+                        let delta = calculate_delta(modifiers);
                         if modifiers.contains(Modifiers::Shift) {
                             crop_amt_top -= min(delta, crop_amt_top);
                         } else {
@@ -167,11 +186,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image) -> Image {
                 }
                 WindowEvent::Key(Key::Down, _, action, modifiers) => {
                     if action != Action::Release {
-                        let delta = if modifiers.contains(Modifiers::Control) {
-                            10
-                        } else {
-                            1
-                        };
+                        let delta = calculate_delta(modifiers);
                         if modifiers.contains(Modifiers::Shift) {
                             crop_amt_bottom -= min(delta, crop_amt_bottom);
                         } else {
@@ -183,11 +198,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image) -> Image {
                 }
                 WindowEvent::Key(Key::Left, _, action, modifiers) => {
                     if action != Action::Release {
-                        let delta = if modifiers.contains(Modifiers::Control) {
-                            10
-                        } else {
-                            1
-                        };
+                        let delta = calculate_delta(modifiers);
                         if modifiers.contains(Modifiers::Shift) {
                             crop_amt_left -= min(delta, crop_amt_left);
                         } else {
@@ -199,11 +210,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image) -> Image {
                 }
                 WindowEvent::Key(Key::Right, _, action, modifiers) => {
                     if action != Action::Release {
-                        let delta = if modifiers.contains(Modifiers::Control) {
-                            10
-                        } else {
-                            1
-                        };
+                        let delta = calculate_delta(modifiers);
                         if modifiers.contains(Modifiers::Shift) {
                             crop_amt_right -= min(delta, crop_amt_right);
                         } else {
@@ -220,30 +227,9 @@ fn main_loop(mut surface: GlfwSurface, image: Image) -> Image {
         if redraw {
             display_image =
                 image.crop(crop_amt_left, crop_amt_right, crop_amt_top, crop_amt_bottom);
-
-            tess = TessBuilder::new(&mut surface)
-                .add_vertices(calculate_vertices(
-                    display_image.width,
-                    display_image.height,
-                    back_buffer.width(),
-                    back_buffer.height(),
-                ))
-                .set_mode(Mode::TriangleFan)
-                .build()
-                .unwrap();
-
+            tess = make_tess(&mut surface, &display_image);
             back_buffer = surface.back_buffer().unwrap();
-
-            tex = Texture::new(
-                &mut surface,
-                [display_image.width as u32, display_image.height as u32],
-                0,
-                Sampler::default(),
-            )
-            .expect("luminance texture creation failed");
-
-            tex.upload_raw(GenMipmaps::No, &display_image.data).unwrap();
-
+            tex = make_texture(&mut surface, &display_image);
             redraw = false;
         }
 
