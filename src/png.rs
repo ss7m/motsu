@@ -25,7 +25,6 @@ const PNG_FILTER_TYPE_DEFAULT: c_int = 0;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ColorType {
     Gray(),
-    Palette(),
     RGB(),
     RGBAlpha(),
     GrayAlpha(),
@@ -35,7 +34,6 @@ impl ColorType {
     fn num_channels(self) -> u8 {
         match self {
             ColorType::Gray() => 1,
-            ColorType::Palette() => unimplemented!(),
             ColorType::RGB() => 3,
             ColorType::RGBAlpha() => 4,
             ColorType::GrayAlpha() => 1,
@@ -45,7 +43,6 @@ impl ColorType {
     fn as_c_int(self) -> c_int {
         (match self {
             ColorType::Gray() => PNG_COLOR_TYPE_GRAY,
-            ColorType::Palette() => PNG_COLOR_TYPE_PALETTE,
             ColorType::RGB() => PNG_COLOR_TYPE_RGB,
             ColorType::RGBAlpha() => PNG_COLOR_TYPE_RGB_ALPHA,
             ColorType::GrayAlpha() => PNG_COLOR_TYPE_GRAY_ALPHA,
@@ -140,11 +137,11 @@ pub struct PNG {
 impl Drop for PNG {
     fn drop(&mut self) {
         unsafe {
-            png_destroy_read_struct(&mut self.png_struct, &mut self.png_info, ptr::null_mut());
-            if let Some(filep) = self.filep {
-                if !filep.is_null() {
-                    fclose(filep);
-                }
+            png_destroy_read_struct(&mut self.png_struct, &mut self.png_info, ptr::null_mut())
+        };
+        if let Some(filep) = self.filep {
+            if !filep.is_null() {
+                unsafe { fclose(filep) };
             }
         }
     }
@@ -210,13 +207,14 @@ impl PNG {
         let filep = unsafe {
             let c_file_name = CString::new(file_name).expect("CString::new failed");
             let mode = CString::new("wb").expect("CString::new failed");
-            let filep = fopen(c_file_name.as_ptr(), mode.as_ptr());
-            if filep.is_null() {
-                return Err(format!("Error opening file for writing: {}", file_name));
-            }
-            png_init_io(png_struct, filep);
-            filep
+            fopen(c_file_name.as_ptr(), mode.as_ptr())
         };
+
+        if filep.is_null() {
+            return Err(format!("Error opening file for writing: {}", file_name));
+        }
+
+        unsafe { png_init_io(png_struct, filep) };
 
         Ok(PNG {
             png_struct,
@@ -239,21 +237,20 @@ impl PNG {
     }
 
     pub fn get_color_type(&self) -> ColorType {
-        unsafe {
-            match png_get_color_type(self.png_struct, self.png_info) {
-                PNG_COLOR_TYPE_GRAY => ColorType::Gray(),
-                PNG_COLOR_TYPE_PALETTE => ColorType::Palette(),
-                PNG_COLOR_TYPE_RGB => ColorType::RGB(),
-                PNG_COLOR_TYPE_RGB_ALPHA => ColorType::RGBAlpha(),
-                PNG_COLOR_TYPE_GRAY_ALPHA => ColorType::GrayAlpha(),
-                _ => panic!(),
-            }
+        let color_type = unsafe { png_get_color_type(self.png_struct, self.png_info) };
+        match color_type {
+            PNG_COLOR_TYPE_GRAY => ColorType::Gray(),
+            PNG_COLOR_TYPE_RGB => ColorType::RGB(),
+            PNG_COLOR_TYPE_RGB_ALPHA => ColorType::RGBAlpha(),
+            PNG_COLOR_TYPE_GRAY_ALPHA => ColorType::GrayAlpha(),
+            PNG_COLOR_TYPE_PALETTE => panic!("Palette not supported"),
+            _ => panic!("Unrecognized color type: {}", color_type),
         }
     }
 
     fn read_file(&mut self, file_name: &str) -> bool {
+        // Currently this coerces all channels to 8 bits
         let filep = unsafe {
-            // Currently this coerces all channels to 8 bits
             let file_name = CString::new(file_name).expect("CString::new failed");
             let mode = CString::new("rb").expect("CString::new failed");
             fopen(file_name.as_ptr(), mode.as_ptr())
@@ -262,9 +259,7 @@ impl PNG {
         if filep.is_null() {
             return false;
         } else if !check_if_png(filep) {
-            unsafe {
-                fclose(filep);
-            }
+            unsafe { fclose(filep) };
             return false;
         }
 
@@ -328,7 +323,6 @@ impl Image {
 
         match self.color_type {
             ColorType::Gray() => Pixel::Gray(self.data[y * row_size + x]),
-            ColorType::Palette() => unimplemented!(),
             ColorType::RGB() => {
                 let red = self.data[y * row_size + x * 3];
                 let green = self.data[y * row_size + x * 3 + 1];
@@ -546,7 +540,6 @@ impl Image {
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Pixel {
     Gray(u8),
-    Palette(), //TODO: how does this work??
     RGB(u8, u8, u8),
     RGBAlpha(u8, u8, u8, u8),
     GrayAlpha(u8, u8),
@@ -564,7 +557,6 @@ impl Pixel {
     fn into_vec(self) -> Vec<u8> {
         match self {
             Pixel::Gray(g) => vec![g],
-            Pixel::Palette() => unimplemented!(),
             Pixel::RGB(r, g, b) => vec![r, g, b],
             Pixel::RGBAlpha(r, g, b, a) => vec![r, g, b, a],
             Pixel::GrayAlpha(g, a) => vec![g, a],
@@ -575,29 +567,24 @@ impl Pixel {
         match self {
             Pixel::Gray(g) => match color_type {
                 ColorType::Gray() => Pixel::Gray(g),
-                ColorType::Palette() => unimplemented!(),
                 ColorType::RGB() => Pixel::RGB(g, g, g),
                 ColorType::RGBAlpha() => Pixel::RGBAlpha(g, g, g, u8::max_value()),
                 ColorType::GrayAlpha() => Pixel::GrayAlpha(g, u8::max_value()),
             },
-            Pixel::Palette() => unimplemented!(),
             Pixel::RGB(r, g, b) => match color_type {
                 ColorType::Gray() => Pixel::Gray(rgb_to_gray(r, g, b)),
-                ColorType::Palette() => unimplemented!(),
                 ColorType::RGB() => Pixel::RGB(r, g, b),
                 ColorType::RGBAlpha() => Pixel::RGBAlpha(r, g, b, u8::max_value()),
                 ColorType::GrayAlpha() => Pixel::GrayAlpha(rgb_to_gray(r, g, b), u8::max_value()),
             },
             Pixel::RGBAlpha(r, g, b, a) => match color_type {
                 ColorType::Gray() => Pixel::Gray(rgb_to_gray(r, g, b)),
-                ColorType::Palette() => unimplemented!(),
                 ColorType::RGB() => Pixel::RGB(r, g, b),
                 ColorType::RGBAlpha() => Pixel::RGBAlpha(r, g, b, a),
                 ColorType::GrayAlpha() => Pixel::GrayAlpha(rgb_to_gray(r, g, b), a),
             },
             Pixel::GrayAlpha(g, a) => match color_type {
                 ColorType::Gray() => Pixel::Gray(g),
-                ColorType::Palette() => unimplemented!(),
                 ColorType::RGB() => Pixel::RGB(g, g, g),
                 ColorType::RGBAlpha() => Pixel::RGBAlpha(g, g, g, a),
                 ColorType::GrayAlpha() => Pixel::GrayAlpha(g, a),
