@@ -1,10 +1,9 @@
+mod image;
+mod pixel;
 mod png;
-use png::{ColorType, Image, PNG};
-use std::cmp::min;
-use std::env;
-use std::process::exit;
 
 use glfw::Modifiers;
+use image::*;
 use luminance::blending::{Equation, Factor};
 use luminance::context::GraphicsContext as _;
 use luminance::pipeline::{BoundTexture, PipelineState};
@@ -15,6 +14,10 @@ use luminance::tess::{Mode, Tess, TessBuilder};
 use luminance::texture::{Dim2, Flat, GenMipmaps, Sampler, Texture};
 use luminance_derive::{Semantics, UniformInterface, Vertex};
 use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowDim, WindowEvent, WindowOpt};
+use pixel::*;
+use std::cmp::min;
+use std::env;
+use std::process::exit;
 
 // Idea: add an id to the vertex to determine v_uv instead of
 // guessing based on the position
@@ -44,28 +47,17 @@ fn main() {
         exit(1);
     }
 
-    let png = match PNG::new(&args[1]) {
-        Ok(png) => png,
-        Err(msg) => {
-            eprintln!("{}", msg);
-            exit(1)
-        }
-    };
-
-    let image = png.get_image().convert(ColorType::RGBAlpha());
+    let image = png::load_image_from_png(&args[1]).unwrap();
 
     let surface = GlfwSurface::new(
-        WindowDim::Windowed(image.width as u32, image.height as u32),
+        WindowDim::Windowed(image.width() as u32, image.height() as u32),
         "PNG",
         WindowOpt::default(),
     );
 
     match surface {
         Ok(surface) => {
-            let image = main_loop(surface, image);
-            if args.len() > 2 {
-                image.write_to_file(&args[2]);
-            }
+            main_loop(surface, image);
         }
         Err(e) => {
             eprintln!("cannot create graphics surface:\n{}", e);
@@ -107,26 +99,27 @@ fn calculate_vertices(
 
 fn make_texture(
     surface: &mut GlfwSurface,
-    display_image: &Image,
+    display_image: &Image<RGBA>,
 ) -> Texture<Flat, Dim2, NormRGBA8UI> {
     let tex = Texture::new(
         surface,
-        [display_image.width as u32, display_image.height as u32],
+        [display_image.width() as u32, display_image.height() as u32],
         0,
         Sampler::default(),
     )
     .expect("luminance texture creation failed");
-    tex.upload_raw(GenMipmaps::No, &display_image.data).unwrap();
+    tex.upload_raw(GenMipmaps::No, &display_image.data())
+        .unwrap();
     tex
 }
 
-fn make_tess(surface: &mut GlfwSurface, display_image: &Image) -> Tess {
+fn make_tess(surface: &mut GlfwSurface, display_image: &Image<RGBA>) -> Tess {
     let width = surface.width();
     let height = surface.height();
     TessBuilder::new(surface)
         .add_vertices(calculate_vertices(
-            display_image.width,
-            display_image.height,
+            display_image.width(),
+            display_image.height(),
             width,
             height,
         ))
@@ -143,9 +136,9 @@ fn calculate_delta(modifiers: Modifiers) -> usize {
     }
 }
 
-fn main_loop(mut surface: GlfwSurface, image: Image) -> Image {
+fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
     // setup for loop
-
+    //
     let mut display_image = image.clone();
     let mut redraw = false;
     let mut crop_amt_left = 0;
@@ -179,7 +172,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image) -> Image {
                             crop_amt_top -= min(delta, crop_amt_top);
                         } else {
                             crop_amt_bottom +=
-                                min(delta, image.height - crop_amt_top - crop_amt_bottom - 1);
+                                min(delta, image.height() - crop_amt_top - crop_amt_bottom - 1);
                         }
                         redraw = true;
                     }
@@ -191,7 +184,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image) -> Image {
                             crop_amt_bottom -= min(delta, crop_amt_bottom);
                         } else {
                             crop_amt_top +=
-                                min(delta, image.height - crop_amt_top - crop_amt_bottom - 1);
+                                min(delta, image.height() - crop_amt_top - crop_amt_bottom - 1);
                         }
                         redraw = true;
                     }
@@ -203,7 +196,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image) -> Image {
                             crop_amt_left -= min(delta, crop_amt_left);
                         } else {
                             crop_amt_right +=
-                                min(delta, image.width - crop_amt_left - crop_amt_right - 1);
+                                min(delta, image.width() - crop_amt_left - crop_amt_right - 1);
                         }
                         redraw = true;
                     }
@@ -215,7 +208,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image) -> Image {
                             crop_amt_right -= min(delta, crop_amt_right);
                         } else {
                             crop_amt_left +=
-                                min(delta, image.width - crop_amt_left - crop_amt_right - 1);
+                                min(delta, image.width() - crop_amt_left - crop_amt_right - 1);
                         }
                         redraw = true;
                     }
