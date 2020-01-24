@@ -179,12 +179,12 @@ impl PNGReader {
         })
     }
 
-    fn get_image(self) -> Option<Image<RGBA>> {
+    fn get_image(self) -> Result<Image<RGBA>, String> {
         let color_type = unsafe { png_get_color_type(self.png_struct, self.png_info) };
         let has_alpha = match color_type {
             PNG_COLOR_TYPE_RGB => false,
             PNG_COLOR_TYPE_RGB_ALPHA => true,
-            _ => return None,
+            _ => return Err("This error shouldn't happen...".to_string()),
         };
 
         let height = unsafe { png_get_image_height(self.png_struct, self.png_info) } as usize;
@@ -200,7 +200,7 @@ impl PNGReader {
             data.extend_from_slice(unsafe { slice::from_raw_parts(row, row_size) })
         }
 
-        Some(if has_alpha {
+        Ok(if has_alpha {
             Image::new(height, width, data)
         } else {
             let image: Image<RGB> = Image::new(height, width, data);
@@ -209,10 +209,8 @@ impl PNGReader {
     }
 }
 
-pub fn load_image_from_png(file_name: &str) -> Option<Image<RGBA>> {
-    PNGReader::new(file_name)
-        .ok()
-        .and_then(PNGReader::get_image)
+pub fn load_image_from_png(file_name: &str) -> Result<Image<RGBA>, String> {
+    PNGReader::new(file_name).and_then(PNGReader::get_image)
 }
 
 struct PNGWriter {

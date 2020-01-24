@@ -47,7 +47,13 @@ fn main() {
         exit(1);
     }
 
-    let image = png::load_image_from_png(&args[1]).unwrap();
+    let image = match png::load_image_from_png(&args[1]) {
+        Ok(image) => image,
+        Err(e) => {
+            eprintln!("{}", e);
+            exit(1);
+        }
+    };
 
     let surface = GlfwSurface::new(
         WindowDim::Windowed(image.width() as u32, image.height() as u32),
@@ -149,18 +155,14 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
     let mut crop_amt_top = 0;
     let mut crop_amt_bottom = 0;
 
-    let mut tex = make_texture(&mut surface, &display_image);
-    let mut back_buffer = surface.back_buffer().unwrap();
     let program = Program::<(), (), ShaderInterface>::from_strings(None, VS, None, FS)
         .expect("Program failed")
         .ignore_warnings();
     let render_st =
         RenderState::default().set_blending((Equation::Additive, Factor::SrcAlpha, Factor::Zero));
-    let mut tess = make_tess(&mut surface, &display_image);
 
     'app: loop {
         for event in surface.poll_events() {
-            //for event in surface.wait_events() {
             match event {
                 WindowEvent::Close | WindowEvent::Key(Key::Escape, _, Action::Release, _) => {
                     break 'app
@@ -223,26 +225,26 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
         if redraw {
             display_image =
                 image.crop(crop_amt_left, crop_amt_right, crop_amt_top, crop_amt_bottom);
-            tess = make_tess(&mut surface, &display_image);
-            back_buffer = surface.back_buffer().unwrap();
-            tex = make_texture(&mut surface, &display_image);
+            let tess = make_tess(&mut surface, &display_image);
+            let back_buffer = surface.back_buffer().unwrap();
+            let tex = make_texture(&mut surface, &display_image);
             redraw = false;
-        }
 
-        surface.pipeline_builder().pipeline(
-            &back_buffer,
-            &PipelineState::default(),
-            |pipeline, mut shd_gate| {
-                let bound_tex = pipeline.bind_texture(&tex);
-                shd_gate.shade(&program, |iface, mut rdr_gate| {
-                    iface.tex.update(&bound_tex);
-                    rdr_gate.render(&render_st, |mut tess_gate| {
-                        tess_gate.render(&tess);
+            surface.pipeline_builder().pipeline(
+                &back_buffer,
+                &PipelineState::default(),
+                |pipeline, mut shd_gate| {
+                    let bound_tex = pipeline.bind_texture(&tex);
+                    shd_gate.shade(&program, |iface, mut rdr_gate| {
+                        iface.tex.update(&bound_tex);
+                        rdr_gate.render(&render_st, |mut tess_gate| {
+                            tess_gate.render(&tess);
+                        });
                     });
-                });
-            },
-        );
-        surface.swap_buffers();
+                },
+            );
+            surface.swap_buffers();
+        }
     }
 
     display_image
