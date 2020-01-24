@@ -163,62 +163,60 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
 
     'app: loop {
         for event in surface.poll_events() {
+            // Nothing needs to happen on key release
+            if let WindowEvent::Key(_, _, Action::Release, _) = event {
+                continue;
+            }
+
+            // TODO: figure out a clever way to reduce code duplication
+            redraw = true;
             match event {
                 WindowEvent::Close | WindowEvent::Key(Key::Escape, _, Action::Release, _) => {
                     break 'app
                 }
-                WindowEvent::FramebufferSize(..) => {
-                    redraw = true;
-                }
-                WindowEvent::Key(Key::Up, _, action, modifiers) => {
-                    if action != Action::Release {
-                        let delta = calculate_delta(modifiers);
-                        if modifiers.contains(Modifiers::Shift) {
-                            crop_amt_top -= min(delta, crop_amt_top);
-                        } else {
-                            crop_amt_bottom +=
-                                min(delta, image.height() - crop_amt_top - crop_amt_bottom - 1);
-                        }
-                        redraw = true;
+                WindowEvent::Key(Key::Up, _, _, modifiers) => {
+                    let delta = calculate_delta(modifiers);
+                    if modifiers.contains(Modifiers::Shift) {
+                        crop_amt_top -= min(delta, crop_amt_top);
+                    } else {
+                        crop_amt_bottom +=
+                            min(delta, image.height() - crop_amt_top - crop_amt_bottom - 1);
                     }
                 }
-                WindowEvent::Key(Key::Down, _, action, modifiers) => {
-                    if action != Action::Release {
-                        let delta = calculate_delta(modifiers);
-                        if modifiers.contains(Modifiers::Shift) {
-                            crop_amt_bottom -= min(delta, crop_amt_bottom);
-                        } else {
-                            crop_amt_top +=
-                                min(delta, image.height() - crop_amt_top - crop_amt_bottom - 1);
-                        }
-                        redraw = true;
+                WindowEvent::Key(Key::Down, _, _, modifiers) => {
+                    let delta = calculate_delta(modifiers);
+                    if modifiers.contains(Modifiers::Shift) {
+                        crop_amt_bottom -= min(delta, crop_amt_bottom);
+                    } else {
+                        crop_amt_top +=
+                            min(delta, image.height() - crop_amt_top - crop_amt_bottom - 1);
                     }
                 }
-                WindowEvent::Key(Key::Left, _, action, modifiers) => {
-                    if action != Action::Release {
-                        let delta = calculate_delta(modifiers);
-                        if modifiers.contains(Modifiers::Shift) {
-                            crop_amt_left -= min(delta, crop_amt_left);
-                        } else {
-                            crop_amt_right +=
-                                min(delta, image.width() - crop_amt_left - crop_amt_right - 1);
-                        }
-                        redraw = true;
+                WindowEvent::Key(Key::Left, _, _, modifiers) => {
+                    let delta = calculate_delta(modifiers);
+                    if modifiers.contains(Modifiers::Shift) {
+                        crop_amt_left -= min(delta, crop_amt_left);
+                    } else {
+                        crop_amt_right +=
+                            min(delta, image.width() - crop_amt_left - crop_amt_right - 1);
                     }
                 }
-                WindowEvent::Key(Key::Right, _, action, modifiers) => {
-                    if action != Action::Release {
-                        let delta = calculate_delta(modifiers);
-                        if modifiers.contains(Modifiers::Shift) {
-                            crop_amt_right -= min(delta, crop_amt_right);
-                        } else {
-                            crop_amt_left +=
-                                min(delta, image.width() - crop_amt_left - crop_amt_right - 1);
-                        }
-                        redraw = true;
+                WindowEvent::Key(Key::Right, _, _, modifiers) => {
+                    let delta = calculate_delta(modifiers);
+                    if modifiers.contains(Modifiers::Shift) {
+                        crop_amt_right -= min(delta, crop_amt_right);
+                    } else {
+                        crop_amt_left +=
+                            min(delta, image.width() - crop_amt_left - crop_amt_right - 1);
                     }
                 }
-                _ => (),
+                WindowEvent::Key(Key::R, _, Action::Press, _) => {
+                    crop_amt_left = 0;
+                    crop_amt_right = 0;
+                    crop_amt_top = 0;
+                    crop_amt_bottom = 0;
+                }
+                _ => {}
             }
         }
 

@@ -19,7 +19,8 @@ impl<P> Image<P>
 where
     P: Pixel,
 {
-    pub fn new(height: usize, width: usize, data: Vec<u8>) -> Image<P> {
+    pub fn new(height: usize, width: usize, mut data: Vec<u8>) -> Image<P> {
+        data.shrink_to_fit();
         Image {
             height,
             width,
@@ -66,12 +67,7 @@ where
             }
         }
 
-        Image {
-            height: self.height,
-            width: self.width,
-            data,
-            phantom: PhantomData,
-        }
+        Image::new(self.height, self.width, data)
     }
 
     fn crop_left(&self, amt: usize) -> Image<P> {
@@ -88,12 +84,7 @@ where
             data.extend_from_slice(row);
         }
 
-        Image {
-            height: self.height,
-            width: self.width - amt,
-            data,
-            phantom: PhantomData,
-        }
+        Image::new(self.height, self.width - amt, data)
     }
 
     fn crop_right(&self, amt: usize) -> Image<P> {
@@ -110,12 +101,7 @@ where
             data.extend_from_slice(row);
         }
 
-        Image {
-            height: self.height,
-            width: self.width - amt,
-            data,
-            phantom: PhantomData,
-        }
+        Image::new(self.height, self.width - amt, data)
     }
 
     fn crop_top(&self, amt: usize) -> Image<P> {
@@ -124,13 +110,7 @@ where
         }
 
         let data = self.data[amt * self.row_size()..].to_vec();
-
-        Image {
-            height: self.height - amt,
-            width: self.width,
-            data,
-            phantom: PhantomData,
-        }
+        Image::new(self.height - amt, self.width, data)
     }
 
     fn crop_bottom(&self, amt: usize) -> Image<P> {
@@ -139,13 +119,7 @@ where
         }
 
         let data = self.data[..(self.height - amt) * self.row_size()].to_vec();
-
-        Image {
-            height: self.height - amt,
-            width: self.width,
-            data,
-            phantom: PhantomData,
-        }
+        Image::new(self.height - amt, self.width, data)
     }
 
     pub fn crop(&self, left: usize, right: usize, top: usize, bottom: usize) -> Image<P> {
