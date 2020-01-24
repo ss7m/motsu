@@ -57,7 +57,10 @@ fn main() {
 
     match surface {
         Ok(surface) => {
-            main_loop(surface, image);
+            let image = main_loop(surface, image);
+            if args.len() >= 3 {
+                png::write_image_to_png(&args[2], image);
+            }
         }
         Err(e) => {
             eprintln!("cannot create graphics surface:\n{}", e);

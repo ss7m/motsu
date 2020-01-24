@@ -15,11 +15,11 @@ const PNG_COLOR_MASK_PALETTE: u8 = 1;
 const PNG_COLOR_MASK_COLOR: u8 = 2;
 const PNG_COLOR_MASK_ALPHA: u8 = 4;
 
-//const PNG_COLOR_TYPE_GRAY: u8 = 0;
+const PNG_COLOR_TYPE_GRAY: u8 = 0;
 const PNG_COLOR_TYPE_PALETTE: u8 = PNG_COLOR_MASK_COLOR | PNG_COLOR_MASK_PALETTE;
 const PNG_COLOR_TYPE_RGB: u8 = PNG_COLOR_MASK_COLOR;
-const PNG_COLOR_TYPE_RGBA: u8 = PNG_COLOR_MASK_COLOR | PNG_COLOR_MASK_ALPHA;
-//const PNG_COLOR_TYPE_GRAY_ALPHA: u8 = PNG_COLOR_MASK_ALPHA;
+const PNG_COLOR_TYPE_RGB_ALPHA: u8 = PNG_COLOR_MASK_COLOR | PNG_COLOR_MASK_ALPHA;
+const PNG_COLOR_TYPE_GRAY_ALPHA: u8 = PNG_COLOR_MASK_ALPHA;
 
 const PNG_INTERLACE_NONE: c_int = 0;
 const PNG_COMPRESSION_TYPE_DEFAULT: c_int = 0;
@@ -54,6 +54,12 @@ extern "C" {
     fn png_create_info_struct(png_struct: *mut c_png_struct) -> *mut c_png_info;
 
     fn png_destroy_read_struct(
+        png_structpp: *mut *mut c_png_struct,
+        png_infopp: *mut *mut c_png_info,
+        png_endpp: *mut *mut c_png_info,
+    );
+
+    fn png_destroy_write_struct(
         png_structpp: *mut *mut c_png_struct,
         png_infopp: *mut *mut c_png_info,
         png_endpp: *mut *mut c_png_info,
@@ -105,27 +111,25 @@ fn check_if_png(file: *mut FILE) -> bool {
     }
 }
 
-struct PNG {
+struct PNGReader {
     png_struct: *mut c_png_struct,
     png_info: *mut c_png_info,
-    filep: Option<*mut FILE>,
+    filep: *mut FILE,
 }
 
-impl Drop for PNG {
+impl Drop for PNGReader {
     fn drop(&mut self) {
         unsafe {
             png_destroy_read_struct(&mut self.png_struct, &mut self.png_info, ptr::null_mut())
         };
-        if let Some(filep) = self.filep {
-            if !filep.is_null() {
-                unsafe { fclose(filep) };
-            }
+        if !self.filep.is_null() {
+            unsafe { fclose(self.filep) };
         }
     }
 }
 
-impl PNG {
-    fn new(file_name: &str) -> Result<PNG, String> {
+impl PNGReader {
+    fn new(file_name: &str) -> Result<PNGReader, String> {
         let version = CString::new("1.6.37").expect("CString::new failed");
         let png_struct = unsafe {
             png_create_read_struct(
@@ -146,50 +150,40 @@ impl PNG {
             return Err("Error creating info struct".to_string());
         }
 
-        let mut png = PNG {
-            png_struct,
-            png_info,
-            filep: None,
-        };
-
-        if png.read_file(file_name) {
-            Ok(png)
-        } else {
-            Err(format!("{} is not a png file or does not exist", file_name))
-        }
-    }
-
-    fn read_file(&mut self, file_name: &str) -> bool {
-        let file_name = CString::new(file_name).expect("CString::new failed");
+        let c_file_name = CString::new(file_name).expect("CString::new failed");
         let mode = CString::new("rb").expect("CString::new failed");
-        let filep = unsafe { fopen(file_name.as_ptr(), mode.as_ptr()) };
+        let filep = unsafe { fopen(c_file_name.as_ptr(), mode.as_ptr()) };
 
         if filep.is_null() {
-            return false;
+            return Err(format!("Error opening file: {}", file_name));
         } else if !check_if_png(filep) {
             unsafe { fclose(filep) };
-            return false;
+            return Err(format!("File {} is not a png file", file_name));
         }
 
         unsafe {
-            png_init_io(self.png_struct, filep);
-            png_set_sig_bytes(self.png_struct, 8);
+            png_init_io(png_struct, filep);
+            png_set_sig_bytes(png_struct, 8);
             png_read_png(
-                self.png_struct,
-                self.png_info,
+                png_struct,
+                png_info,
                 PNG_TRANSFORM_STRIP_16 | PNG_TRANSFORM_PACKING | PNG_TRANSFORM_GRAY_TO_RGB,
                 ptr::null_mut(),
             );
         }
 
-        true
+        Ok(PNGReader {
+            png_struct,
+            png_info,
+            filep,
+        })
     }
 
     fn get_image(self) -> Option<Image<RGBA>> {
         let color_type = unsafe { png_get_color_type(self.png_struct, self.png_info) };
         let has_alpha = match color_type {
             PNG_COLOR_TYPE_RGB => false,
-            PNG_COLOR_TYPE_RGBA => true,
+            PNG_COLOR_TYPE_RGB_ALPHA => true,
             _ => return None,
         };
 
@@ -216,5 +210,133 @@ impl PNG {
 }
 
 pub fn load_image_from_png(file_name: &str) -> Option<Image<RGBA>> {
-    PNG::new(file_name).ok().and_then(PNG::get_image)
+    PNGReader::new(file_name)
+        .ok()
+        .and_then(PNGReader::get_image)
+}
+
+struct PNGWriter {
+    png_struct: *mut c_png_struct,
+    png_info: *mut c_png_info,
+    filep: *mut FILE,
+}
+
+impl Drop for PNGWriter {
+    fn drop(&mut self) {
+        unsafe {
+            png_destroy_write_struct(&mut self.png_struct, &mut self.png_info, ptr::null_mut())
+        };
+        if !self.filep.is_null() {
+            unsafe { fclose(self.filep) };
+        }
+    }
+}
+
+impl PNGWriter {
+    fn new(file_name: &str) -> Result<PNGWriter, String> {
+        let version = CString::new("1.6.37").expect("CString::new failed");
+        let png_struct = unsafe {
+            png_create_write_struct(
+                version.as_ptr(),
+                ptr::null_mut(),
+                ptr::null_mut(),
+                ptr::null_mut(),
+            )
+        };
+
+        if png_struct.is_null() {
+            return Err("Error creating png struct".to_string());
+        }
+
+        let png_info = unsafe { png_create_info_struct(png_struct) };
+
+        if png_info.is_null() {
+            return Err("Error getting png info".to_string());
+        }
+
+        let c_file_name = CString::new(file_name).expect("CString::new failed");
+        let mode = CString::new("wb").expect("CString::new failed");
+        let filep = unsafe { fopen(c_file_name.as_ptr(), mode.as_ptr()) };
+
+        if filep.is_null() {
+            return Err(format!("Error opening file for writing: {}", file_name));
+        }
+
+        unsafe { png_init_io(png_struct, filep) };
+
+        Ok(PNGWriter {
+            png_struct,
+            png_info,
+            filep,
+        })
+    }
+
+    fn write_image<P>(self, image: Image<P>)
+    where
+        P: PNGPixel,
+    {
+        let mut data = Vec::with_capacity(image.height());
+        let height = image.height();
+        let width = image.width();
+        let row_size = image.row_size();
+        let mut image_data = image.into_raw();
+
+        for i in 0..height {
+            let start = i * row_size;
+            let end = start + row_size;
+            let row = &mut image_data[start..end];
+            data.push(row.as_mut_ptr());
+        }
+
+        let data = data.as_mut_ptr();
+
+        unsafe {
+            png_set_IHDR(
+                self.png_struct,
+                self.png_info,
+                width as u32,
+                height as u32,
+                8, // This program only supports a bit depth of 8
+                P::COLOR_TYPE,
+                PNG_INTERLACE_NONE,
+                PNG_COMPRESSION_TYPE_DEFAULT,
+                PNG_FILTER_TYPE_DEFAULT,
+            );
+
+            png_set_rows(self.png_struct, self.png_info, data);
+            png_write_png(
+                self.png_struct,
+                self.png_info,
+                PNG_TRANSFORM_IDENTITY,
+                ptr::null_mut(),
+            );
+        }
+    }
+}
+
+pub fn write_image_to_png<P>(file_name: &str, image: Image<P>)
+where
+    P: PNGPixel,
+{
+    PNGWriter::new(file_name).unwrap().write_image(image);
+}
+
+pub trait PNGPixel: Pixel {
+    const COLOR_TYPE: c_int;
+}
+
+impl PNGPixel for Gray {
+    const COLOR_TYPE: c_int = PNG_COLOR_TYPE_GRAY as c_int;
+}
+
+impl PNGPixel for RGB {
+    const COLOR_TYPE: c_int = PNG_COLOR_TYPE_RGB as c_int;
+}
+
+impl PNGPixel for GrayA {
+    const COLOR_TYPE: c_int = PNG_COLOR_TYPE_GRAY_ALPHA as c_int;
+}
+
+impl PNGPixel for RGBA {
+    const COLOR_TYPE: c_int = PNG_COLOR_TYPE_RGB_ALPHA as c_int;
 }

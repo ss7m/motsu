@@ -40,6 +40,10 @@ where
         &self.data
     }
 
+    pub fn into_raw(self) -> Vec<u8> {
+        self.data
+    }
+
     pub fn row_size(&self) -> usize {
         self.width * P::NUM_CHANNELS
     }
