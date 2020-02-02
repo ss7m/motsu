@@ -312,11 +312,11 @@ impl PNGWriter {
     }
 }
 
-pub fn write_image_to_png<P>(file_name: &str, image: Image<P>)
+pub fn write_image_to_png<P>(file_name: &str, image: Image<P>) -> Result<(), String>
 where
     P: PNGPixel,
 {
-    PNGWriter::new(file_name).unwrap().write_image(image);
+    PNGWriter::new(file_name).map(|png| png.write_image(image))
 }
 
 pub trait PNGPixel: Pixel {

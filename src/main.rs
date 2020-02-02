@@ -47,11 +47,12 @@ struct PNGArgs {
     #[argh(switch, short = 'q')]
     quiet: bool,
 
-    #[argh(positional)]
-    input: String,
+    /// output file
+    #[argh(option, short = 'o')]
+    output: Option<String>,
 
     #[argh(positional)]
-    output: Option<String>,
+    input: String,
 }
 
 fn main() {
@@ -65,7 +66,9 @@ fn main() {
         }
     };
 
-    let output_image = if !args.quiet {
+    let output_image = if args.quiet {
+        image
+    } else {
         let surface = GlfwSurface::new(
             WindowDim::Windowed(image.width() as u32, image.height() as u32),
             "PNG",
@@ -79,12 +82,12 @@ fn main() {
                 exit(1);
             }
         }
-    } else {
-        image
     };
 
     if let Some(output) = args.output {
-        png::write_image_to_png(&output, output_image);
+        if let Err(e) = png::write_image_to_png(&output, output_image) {
+            eprintln!("{}", e);
+        }
     }
 }
 
