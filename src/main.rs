@@ -2,6 +2,7 @@ mod image;
 mod pixel;
 mod png;
 
+use argh::FromArgs;
 use glfw::Modifiers;
 use image::*;
 use luminance::blending::{Equation, Factor};
@@ -16,7 +17,6 @@ use luminance_derive::{Semantics, UniformInterface, Vertex};
 use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowDim, WindowEvent, WindowOpt};
 use pixel::*;
 use std::cmp::min;
-use std::env;
 use std::process::exit;
 
 // Idea: add an id to the vertex to determine v_uv instead of
@@ -40,14 +40,24 @@ struct ShaderInterface {
     tex: Uniform<&'static BoundTexture<'static, Flat, Dim2, NormUnsigned>>,
 }
 
-fn main() {
-    let args = env::args().collect::<Vec<_>>();
-    if args.len() < 2 {
-        eprintln!("Need to give input file");
-        exit(1);
-    }
+#[derive(FromArgs, Debug)]
+/// png viewer and editor
+struct PNGArgs {
+    /// don't display the input image
+    #[argh(switch, short = 'q')]
+    quiet: bool,
 
-    let image = match png::load_image_from_png(&args[1]) {
+    #[argh(positional)]
+    input: String,
+
+    #[argh(positional)]
+    output: Option<String>,
+}
+
+fn main() {
+    let args: PNGArgs = argh::from_env();
+
+    let image = match png::load_image_from_png(&args.input) {
         Ok(image) => image,
         Err(e) => {
             eprintln!("{}", e);
@@ -55,23 +65,26 @@ fn main() {
         }
     };
 
-    let surface = GlfwSurface::new(
-        WindowDim::Windowed(image.width() as u32, image.height() as u32),
-        "PNG",
-        WindowOpt::default(),
-    );
+    let output_image = if !args.quiet {
+        let surface = GlfwSurface::new(
+            WindowDim::Windowed(image.width() as u32, image.height() as u32),
+            "PNG",
+            WindowOpt::default(),
+        );
 
-    match surface {
-        Ok(surface) => {
-            let image = main_loop(surface, image);
-            if args.len() >= 3 {
-                png::write_image_to_png(&args[2], image);
+        match surface {
+            Ok(surface) => main_loop(surface, image),
+            Err(e) => {
+                eprintln!("cannot create graphics surface:\n{}", e);
+                exit(1);
             }
         }
-        Err(e) => {
-            eprintln!("cannot create graphics surface:\n{}", e);
-            exit(1);
-        }
+    } else {
+        image
+    };
+
+    if let Some(output) = args.output {
+        png::write_image_to_png(&output, output_image);
     }
 }
 
@@ -171,9 +184,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
             // TODO: figure out a clever way to reduce code duplication
             redraw = true;
             match event {
-                WindowEvent::Close | WindowEvent::Key(Key::Escape, _, Action::Release, _) => {
-                    break 'app
-                }
+                WindowEvent::Close | WindowEvent::Key(Key::Escape, _, _, _) => break 'app,
                 WindowEvent::Key(Key::Up, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
                     if modifiers.contains(Modifiers::Shift) {
