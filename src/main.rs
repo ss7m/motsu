@@ -47,6 +47,11 @@ struct PNGArgs {
     #[argh(switch, short = 'q')]
     quiet: bool,
 
+    /// format for the output image, case insensitive.
+    /// options: gray, rgb, graya, rgba
+    #[argh(option)]
+    format: Option<String>,
+
     /// output file
     #[argh(option, short = 'o')]
     output: Option<String>,
@@ -85,7 +90,19 @@ fn main() {
     };
 
     if let Some(output) = args.output {
-        if let Err(e) = png::write_image_to_png(&output, output_image) {
+        let result = if let Some(format) = args.format {
+            match format.to_ascii_lowercase().as_str() {
+                "gray" => png::write_image_to_png::<_, Gray>(&output, output_image),
+                "rgb" => png::write_image_to_png::<_, RGB>(&output, output_image),
+                "graya" => png::write_image_to_png::<_, GrayA>(&output, output_image),
+                "rgba" => png::write_image_to_png::<_, RGBA>(&output, output_image),
+                _ => Err(format!("Unknown format: {}", format)),
+            }
+        } else {
+            png::write_image_to_png::<_, RGBA>(&output, output_image)
+        };
+
+        if let Err(e) = result {
             eprintln!("{}", e);
         }
     }

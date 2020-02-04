@@ -312,10 +312,13 @@ impl PNGWriter {
     }
 }
 
-pub fn write_image_to_png<P>(file_name: &str, image: Image<P>) -> Result<(), String>
+pub fn write_image_to_png<P, Q>(file_name: &str, image: Image<P>) -> Result<(), String>
 where
     P: PNGPixel,
+    Q: PNGPixel,
+    P: PixelConvert<Q>,
 {
+    let image: Image<Q> = image.convert();
     PNGWriter::new(file_name).map(|png| png.write_image(image))
 }
 

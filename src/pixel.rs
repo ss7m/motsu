@@ -35,6 +35,7 @@ fn rgb_to_gray(r: u8, g: u8, b: u8) -> u8 {
 }
 
 // TODO: Once const generics are more robust, implement for slices
+// the const version of from_slice may or may not be a good idea...
 pub trait Pixel: Copy {
     const NUM_CHANNELS: usize;
 
