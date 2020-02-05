@@ -47,10 +47,10 @@ struct PNGArgs {
     #[argh(switch, short = 'q')]
     quiet: bool,
 
-    /// format for the output image, case insensitive.
+    /// encoding for the output image, case insensitive.
     /// options: gray, rgb, graya, rgba
     #[argh(option)]
-    format: Option<String>,
+    encoding: Option<String>,
 
     /// output file
     #[argh(option, short = 'o')]
@@ -63,7 +63,7 @@ struct PNGArgs {
 fn main() {
     let args: PNGArgs = argh::from_env();
 
-    let image = match png::load_image_from_png(&args.input) {
+    let image = match Image::<RGBA>::load_from_png(&args.input) {
         Ok(image) => image,
         Err(e) => {
             eprintln!("{}", e);
@@ -90,16 +90,16 @@ fn main() {
     };
 
     if let Some(output) = args.output {
-        let result = if let Some(format) = args.format {
-            match format.to_ascii_lowercase().as_str() {
-                "gray" => png::write_image_to_png::<_, Gray>(&output, output_image),
-                "rgb" => png::write_image_to_png::<_, RGB>(&output, output_image),
-                "graya" => png::write_image_to_png::<_, GrayA>(&output, output_image),
-                "rgba" => png::write_image_to_png::<_, RGBA>(&output, output_image),
-                _ => Err(format!("Unknown format: {}", format)),
+        let result = if let Some(encoding) = args.encoding {
+            match encoding.to_ascii_lowercase().as_str() {
+                "gray" => output_image.convert::<Gray>().write_to_png(&output),
+                "rgb" => output_image.convert::<RGB>().write_to_png(&output),
+                "graya" => output_image.convert::<GrayA>().write_to_png(&output),
+                "rgba" => output_image.convert::<RGBA>().write_to_png(&output),
+                _ => Err(format!("Unknown encoding: {}", encoding)),
             }
         } else {
-            png::write_image_to_png::<_, RGBA>(&output, output_image)
+            output_image.convert::<RGBA>().write_to_png(&output)
         };
 
         if let Err(e) = result {

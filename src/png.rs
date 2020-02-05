@@ -179,7 +179,12 @@ impl PNGReader {
         })
     }
 
-    fn get_image(self) -> Result<Image<RGBA>, String> {
+    fn get_image<P>(self) -> Result<Image<P>, String>
+    where
+        P: PNGPixel,
+        RGBA: PixelConvert<P>,
+        RGB: PixelConvert<P>,
+    {
         let color_type = unsafe { png_get_color_type(self.png_struct, self.png_info) };
         let has_alpha = match color_type {
             PNG_COLOR_TYPE_RGB => false,
@@ -201,16 +206,11 @@ impl PNGReader {
         }
 
         Ok(if has_alpha {
-            Image::new(height, width, data)
+            Image::<RGBA>::new(height, width, data).convert::<P>()
         } else {
-            let image: Image<RGB> = Image::new(height, width, data);
-            image.convert()
+            Image::<RGB>::new(height, width, data).convert::<P>()
         })
     }
-}
-
-pub fn load_image_from_png(file_name: &str) -> Result<Image<RGBA>, String> {
-    PNGReader::new(file_name).and_then(PNGReader::get_image)
 }
 
 struct PNGWriter {
@@ -312,14 +312,21 @@ impl PNGWriter {
     }
 }
 
-pub fn write_image_to_png<P, Q>(file_name: &str, image: Image<P>) -> Result<(), String>
+impl<P> Image<P>
 where
     P: PNGPixel,
-    Q: PNGPixel,
-    P: PixelConvert<Q>,
 {
-    let image: Image<Q> = image.convert();
-    PNGWriter::new(file_name).map(|png| png.write_image(image))
+    pub fn load_from_png(file_name: &str) -> Result<Image<P>, String>
+    where
+        RGB: PixelConvert<P>,
+        RGBA: PixelConvert<P>,
+    {
+        PNGReader::new(file_name).and_then(PNGReader::get_image)
+    }
+
+    pub fn write_to_png(self, file_name: &str) -> Result<(), String> {
+        PNGWriter::new(file_name).map(|png| png.write_image(self))
+    }
 }
 
 pub trait PNGPixel: Pixel {

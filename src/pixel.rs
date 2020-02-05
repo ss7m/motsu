@@ -112,9 +112,11 @@ where
     fn convert(self) -> T;
 }
 
-// Convert implementations for RGB
-impl PixelConvert<RGB> for RGB {
-    fn convert(self) -> RGB {
+impl<P> PixelConvert<P> for P
+where
+    P: Pixel,
+{
+    fn convert(self) -> P {
         self
     }
 }
@@ -158,12 +160,6 @@ impl PixelConvert<RGB> for Gray {
     }
 }
 
-impl PixelConvert<Gray> for Gray {
-    fn convert(self) -> Gray {
-        self
-    }
-}
-
 impl PixelConvert<RGBA> for Gray {
     fn convert(self) -> RGBA {
         RGBA {
@@ -203,12 +199,6 @@ impl PixelConvert<Gray> for RGBA {
     }
 }
 
-impl PixelConvert<RGBA> for RGBA {
-    fn convert(self) -> RGBA {
-        self
-    }
-}
-
 impl PixelConvert<GrayA> for RGBA {
     fn convert(self) -> GrayA {
         GrayA {
@@ -243,11 +233,5 @@ impl PixelConvert<RGBA> for GrayA {
             blue: self.gray,
             alpha: self.alpha,
         }
-    }
-}
-
-impl PixelConvert<GrayA> for GrayA {
-    fn convert(self) -> GrayA {
-        self
     }
 }
