@@ -19,14 +19,28 @@ impl<P> Image<P>
 where
     P: Pixel,
 {
-    pub fn new(height: usize, width: usize, mut data: Vec<u8>) -> Image<P> {
-        data.shrink_to_fit();
+    pub fn new(height: usize, width: usize, data: Vec<u8>) -> Image<P> {
+        let mut image = Image::make_image(height, width, data);
+        image.shrink_data();
+        image
+    }
+
+    // Make an Image<P> without resizing the vector
+    fn make_image(height: usize, width: usize, data: Vec<u8>) -> Image<P> {
         Image {
             height,
             width,
             data,
             phantom: PhantomData,
         }
+    }
+
+    fn shrink_data(&mut self) {
+        let size = self.height * self.width * P::NUM_CHANNELS;
+        if self.data.len() != size {
+            self.data.resize_with(size, || 0);
+        }
+        self.data.shrink_to_fit();
     }
 
     pub fn height(&self) -> usize {
@@ -84,7 +98,7 @@ where
             data.extend_from_slice(row);
         }
 
-        Image::new(self.height, self.width - amt, data)
+        Image::make_image(self.height, self.width - amt, data)
     }
 
     fn crop_right(&self, amt: usize) -> Image<P> {
@@ -101,7 +115,7 @@ where
             data.extend_from_slice(row);
         }
 
-        Image::new(self.height, self.width - amt, data)
+        Image::make_image(self.height, self.width - amt, data)
     }
 
     fn crop_top(&self, amt: usize) -> Image<P> {
@@ -110,7 +124,7 @@ where
         }
 
         let data = self.data[amt * self.row_size()..].to_vec();
-        Image::new(self.height - amt, self.width, data)
+        Image::make_image(self.height - amt, self.width, data)
     }
 
     fn crop_bottom(&self, amt: usize) -> Image<P> {
@@ -119,13 +133,16 @@ where
         }
 
         let data = self.data[..(self.height - amt) * self.row_size()].to_vec();
-        Image::new(self.height - amt, self.width, data)
+        Image::make_image(self.height - amt, self.width, data)
     }
 
     pub fn crop(&self, left: usize, right: usize, top: usize, bottom: usize) -> Image<P> {
-        self.crop_top(top)
+        let mut image = self
+            .crop_top(top)
             .crop_bottom(bottom)
             .crop_left(left)
-            .crop_right(right)
+            .crop_right(right);
+        image.shrink_data();
+        image
     }
 }

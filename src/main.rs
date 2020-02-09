@@ -47,7 +47,7 @@ struct PNGArgs {
     #[argh(switch, short = 'q')]
     quiet: bool,
 
-    /// encoding for the output image, case insensitive.
+    /// encoding to use when saving image
     /// options: gray, rgb, graya, rgba
     #[argh(option)]
     encoding: Option<String>,
@@ -55,6 +55,22 @@ struct PNGArgs {
     /// output file
     #[argh(option, short = 'o')]
     output: Option<String>,
+
+    /// crop left
+    #[argh(option, short = 'l')]
+    crop_left: Option<usize>,
+
+    /// crop right
+    #[argh(option, short = 'r')]
+    crop_right: Option<usize>,
+
+    /// crop top
+    #[argh(option, short = 't')]
+    crop_top: Option<usize>,
+
+    /// crop bottom
+    #[argh(option, short = 'b')]
+    crop_bottom: Option<usize>,
 
     #[argh(positional)]
     input: String,
@@ -69,7 +85,13 @@ fn main() {
             eprintln!("{}", e);
             exit(1);
         }
-    };
+    }
+    .crop(
+        args.crop_left.unwrap_or(0),
+        args.crop_right.unwrap_or(0),
+        args.crop_top.unwrap_or(0),
+        args.crop_bottom.unwrap_or(0),
+    );
 
     let output_image = if args.quiet {
         image
