@@ -67,16 +67,46 @@ where
         P::from_slice(&self.data, y * self.row_size() + x * P::NUM_CHANNELS)
     }
 
+    pub fn to_pixels(&self) -> Vec<Vec<P>> {
+        let mut pixels = Vec::with_capacity(self.height);
+        for y in 0..self.height {
+            let mut row = Vec::with_capacity(self.width);
+            for x in 0..self.width {
+                row.push(self.get_pixel(x, y));
+            }
+            pixels.push(row);
+        }
+
+        pixels
+    }
+
+    pub fn from_pixels(pixels: Vec<Vec<P>>) -> Image<P> {
+        if pixels.is_empty() || pixels[0].is_empty() {
+            Image::make_image(0, 0, Vec::with_capacity(0))
+        } else {
+            let height = pixels.len();
+            let width = pixels[0].len();
+            let mut data = Vec::with_capacity(height * width * P::NUM_CHANNELS);
+
+            for y in 0..height {
+                for x in 0..width {
+                    data.extend_from_slice(&pixels[y][x].into_vec());
+                }
+            }
+
+            Image::make_image(height, width, data)
+        }
+    }
+
     pub fn convert<Q>(&self) -> Image<Q>
     where
         Q: Pixel,
         P: PixelConvert<Q>,
     {
         let mut data = Vec::with_capacity(self.width * self.height * Q::NUM_CHANNELS);
-
-        for i in 0..self.height {
-            for j in 0..self.width {
-                let pixel: Q = self.get_pixel(j, i).convert();
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let pixel: Q = self.get_pixel(x, y).convert();
                 data.append(&mut pixel.into_vec());
             }
         }

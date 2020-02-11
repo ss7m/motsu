@@ -39,16 +39,16 @@ extern "C" {
     fn png_set_sig_bytes(png_struct: *mut c_png_struct, num_bytes: c_int);
     fn png_create_read_struct(
         version: *const c_char,
-        error_ptr: *mut u8,
-        error_fn: *mut u8,
-        warning_fn: *mut u8,
+        error_ptr: *mut c_void,
+        error_fn: *mut c_void,
+        warning_fn: *mut c_void,
     ) -> *mut c_png_struct;
 
     fn png_create_write_struct(
         version: *const c_char,
-        error_ptr: *mut u8,
-        error_fn: *mut u8,
-        warning_fn: *mut u8,
+        error_ptr: *mut c_void,
+        error_fn: *mut c_void,
+        warning_fn: *mut c_void,
     ) -> *mut c_png_struct;
 
     fn png_create_info_struct(png_struct: *mut c_png_struct) -> *mut c_png_info;

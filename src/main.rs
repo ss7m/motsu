@@ -47,8 +47,12 @@ struct PNGArgs {
     #[argh(switch, short = 'q')]
     quiet: bool,
 
+    /// save to input file
+    #[argh(switch, short = 'i')]
+    in_place: bool,
+
     /// encoding to use when saving image
-    /// options: gray, rgb, graya, rgba
+    /// (gray, rgb, graya, rgba)
     #[argh(option)]
     encoding: Option<String>,
 
@@ -77,7 +81,17 @@ struct PNGArgs {
 }
 
 fn main() {
-    let args: PNGArgs = argh::from_env();
+    let mut args: PNGArgs = argh::from_env();
+
+    if args.in_place {
+        match args.output {
+            None => args.output = Some(args.input.clone()),
+            Some(_) => {
+                eprintln!("Cannot specify both --in-place and --output");
+                exit(1);
+            }
+        }
+    }
 
     let image = match Image::<RGBA>::load_from_png(&args.input) {
         Ok(image) => image,
