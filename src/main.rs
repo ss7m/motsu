@@ -1,10 +1,5 @@
-mod image;
-mod pixel;
-mod png;
-
 use argh::FromArgs;
 use glfw::Modifiers;
-use image::*;
 use luminance::blending::{Equation, Factor};
 use luminance::context::GraphicsContext as _;
 use luminance::pipeline::{BoundTexture, PipelineState};
@@ -15,7 +10,8 @@ use luminance::tess::{Mode, Tess, TessBuilder};
 use luminance::texture::{Dim2, Flat, GenMipmaps, Sampler, Texture};
 use luminance_derive::{Semantics, UniformInterface, Vertex};
 use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowDim, WindowEvent, WindowOpt};
-use pixel::*;
+use png_rs::image::*;
+use png_rs::pixel::*;
 use std::cmp::min;
 use std::process::exit;
 
