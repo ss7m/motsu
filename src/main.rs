@@ -7,7 +7,7 @@ use luminance::pixel::{NormRGBA8UI, NormUnsigned};
 use luminance::render_state::RenderState;
 use luminance::shader::program::{Program, Uniform};
 use luminance::tess::{Mode, Tess, TessBuilder};
-use luminance::texture::{Dim2, Flat, GenMipmaps, Sampler, Texture};
+use luminance::texture::{Dim2, GenMipmaps, Sampler, Texture};
 use luminance_derive::{Semantics, UniformInterface, Vertex};
 use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowDim, WindowEvent, WindowOpt};
 use png_rs::image::*;
@@ -33,7 +33,7 @@ pub struct Vertex(VertexPosition);
 
 #[derive(UniformInterface)]
 struct ShaderInterface {
-    tex: Uniform<&'static BoundTexture<'static, Flat, Dim2, NormUnsigned>>,
+    tex: Uniform<&'static BoundTexture<'static, Dim2, NormUnsigned>>,
 }
 
 #[derive(FromArgs, Debug)]
@@ -174,7 +174,7 @@ fn calculate_vertices(
 fn make_texture(
     surface: &mut GlfwSurface,
     display_image: &Image<RGBA>,
-) -> Texture<Flat, Dim2, NormRGBA8UI> {
+) -> Texture<Dim2, NormRGBA8UI> {
     let tex = Texture::new(
         surface,
         [display_image.width() as u32, display_image.height() as u32],
