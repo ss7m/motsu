@@ -88,9 +88,10 @@ where
             let width = pixels[0].len();
             let mut data = Vec::with_capacity(height * width * P::NUM_CHANNELS);
 
-            for y in 0..height {
-                for x in 0..width {
-                    data.extend_from_slice(&pixels[y][x].into_vec());
+            for row in pixels {
+                for pixel in row {
+                    data.extend_from_slice(&pixel.into_vec());
+                    //data.extend_from_slice(&pixels[y][x].into_vec());
                 }
             }
 

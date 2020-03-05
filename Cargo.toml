@@ -14,3 +14,7 @@ luminance-windowing = "*"
 luminance-glfw = "*"
 glfw = "0.34"
 argh = "*"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
