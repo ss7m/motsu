@@ -91,7 +91,6 @@ where
             for row in pixels {
                 for pixel in row {
                     data.extend_from_slice(&pixel.into_vec());
-                    //data.extend_from_slice(&pixels[y][x].into_vec());
                 }
             }
 
