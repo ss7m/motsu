@@ -225,6 +225,9 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
         .ignore_warnings();
     let render_st =
         RenderState::default().set_blending((Equation::Additive, Factor::SrcAlpha, Factor::Zero));
+    let pipeline_st = PipelineState::default()
+        .set_clear_color([1.0, 0.0, 1.0, 1.0])
+        .enable_clear_color(true);
 
     'app: loop {
         for event in surface.poll_events() {
@@ -299,7 +302,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
 
             surface.pipeline_builder().pipeline(
                 &back_buffer,
-                &PipelineState::default(),
+                &pipeline_st,
                 |pipeline, mut shd_gate| {
                     let bound_tex = pipeline.bind_texture(&tex);
                     shd_gate.shade(&program, |iface, mut rdr_gate| {
