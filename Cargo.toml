@@ -12,7 +12,7 @@ luminance = "*"
 luminance-derive = "*"
 luminance-windowing = "*"
 luminance-glfw = "*"
-glfw = "0.34"
+glfw = "*"
 argh = "*"
 
 [profile.release]

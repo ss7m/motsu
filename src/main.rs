@@ -1,15 +1,18 @@
 use argh::FromArgs;
-use glfw::Modifiers;
-use luminance::blending::{Equation, Factor};
-use luminance::context::GraphicsContext as _;
-use luminance::pipeline::{BoundTexture, PipelineState};
+//use glfw::Modifiers;
+use glfw::{Action, Context as _, Key, Modifiers, WindowEvent};
+use luminance::blending::{Blending, Equation, Factor};
+use luminance::context::GraphicsContext;
+use luminance::pipeline::{PipelineState, TextureBinding};
 use luminance::pixel::{NormRGBA8UI, NormUnsigned};
 use luminance::render_state::RenderState;
-use luminance::shader::program::{Program, Uniform};
+use luminance::shader::Uniform;
 use luminance::tess::{Mode, Tess, TessBuilder};
 use luminance::texture::{Dim2, GenMipmaps, Sampler, Texture};
 use luminance_derive::{Semantics, UniformInterface, Vertex};
-use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowDim, WindowEvent, WindowOpt};
+use luminance_glfw::GlfwSurface;
+use luminance_windowing::WindowOpt;
+//use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowDim, WindowEvent, WindowOpt};
 use png_rs::image::*;
 use png_rs::pixel::*;
 use std::cmp::min;
@@ -20,6 +23,7 @@ use std::process::exit;
 
 const VS: &str = include_str!("texture-vs.glsl");
 const FS: &str = include_str!("texture-fs.glsl");
+type GlfwBackend = <GlfwSurface as GraphicsContext>::Backend;
 
 #[derive(Copy, Clone, Debug, Semantics)]
 pub enum VertexSemantics {
@@ -27,13 +31,13 @@ pub enum VertexSemantics {
     Position,
 }
 
-#[derive(Vertex, Debug)]
+#[derive(Copy, Clone, Vertex, Debug)]
 #[vertex(sem = "VertexSemantics")]
 pub struct Vertex(VertexPosition);
 
 #[derive(UniformInterface)]
 struct ShaderInterface {
-    tex: Uniform<&'static BoundTexture<'static, Dim2, NormUnsigned>>,
+    tex: Uniform<TextureBinding<Dim2, NormUnsigned>>,
 }
 
 #[derive(FromArgs, Debug)]
@@ -106,11 +110,15 @@ fn main() {
     let output_image = if args.quiet {
         image
     } else {
-        let surface = GlfwSurface::new(
-            WindowDim::Windowed(image.width() as u32, image.height() as u32),
-            "PNG",
-            WindowOpt::default(),
-        );
+        let surface = GlfwSurface::new_gl33("PNG", WindowOpt::default());
+        //let surface = GlfwSurface::new(
+        //    WindowDim::Windowed {
+        //        width: image.width() as u32,
+        //        height: image.height() as u32,
+        //    },
+        //    "PNG",
+        //    WindowOpt::default(),
+        //);
 
         match surface {
             Ok(surface) => main_loop(surface, image),
@@ -174,8 +182,8 @@ fn calculate_vertices(
 fn make_texture(
     surface: &mut GlfwSurface,
     display_image: &Image<RGBA>,
-) -> Texture<Dim2, NormRGBA8UI> {
-    let tex = Texture::new(
+) -> Texture<GlfwBackend, Dim2, NormRGBA8UI> {
+    let mut tex = Texture::new(
         surface,
         [display_image.width() as u32, display_image.height() as u32],
         0,
@@ -187,15 +195,14 @@ fn make_texture(
     tex
 }
 
-fn make_tess(surface: &mut GlfwSurface, display_image: &Image<RGBA>) -> Tess {
-    let width = surface.width();
-    let height = surface.height();
+fn make_tess(surface: &mut GlfwSurface, display_image: &Image<RGBA>) -> Tess<GlfwBackend, Vertex> {
+    let (width, height) = surface.window.get_size();
     TessBuilder::new(surface)
-        .add_vertices(calculate_vertices(
+        .set_vertices(calculate_vertices(
             display_image.width(),
             display_image.height(),
-            width,
-            height,
+            width as u32,
+            height as u32,
         ))
         .set_mode(Mode::TriangleFan)
         .build()
@@ -220,17 +227,23 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
     let mut crop_amt_top = 0;
     let mut crop_amt_bottom = 0;
 
-    let program = Program::<(), (), ShaderInterface>::from_strings(None, VS, None, FS)
+    let mut program = surface
+        .new_shader_program::<(), (), ShaderInterface>()
+        .from_strings(VS, None, None, FS)
         .expect("Program failed")
         .ignore_warnings();
-    let render_st =
-        RenderState::default().set_blending((Equation::Additive, Factor::SrcAlpha, Factor::Zero));
+    let render_st = RenderState::default().set_blending(Blending {
+        equation: Equation::Additive,
+        src: Factor::SrcAlpha,
+        dst: Factor::Zero,
+    });
     let pipeline_st = PipelineState::default()
         .set_clear_color([1.0, 0.0, 1.0, 1.0])
         .enable_clear_color(true);
 
     'app: loop {
-        for event in surface.poll_events() {
+        surface.window.glfw.poll_events();
+        for (_, event) in surface.events_rx.try_iter() {
             // Nothing needs to happen on key release
             if let WindowEvent::Key(_, _, Action::Release, _) = event {
                 continue;
@@ -297,23 +310,21 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
                 image.crop(crop_amt_left, crop_amt_right, crop_amt_top, crop_amt_bottom);
             let tess = make_tess(&mut surface, &display_image);
             let back_buffer = surface.back_buffer().unwrap();
-            let tex = make_texture(&mut surface, &display_image);
+            let mut tex = make_texture(&mut surface, &display_image);
             redraw = false;
 
-            surface.pipeline_builder().pipeline(
-                &back_buffer,
-                &pipeline_st,
-                |pipeline, mut shd_gate| {
-                    let bound_tex = pipeline.bind_texture(&tex);
-                    shd_gate.shade(&program, |iface, mut rdr_gate| {
-                        iface.tex.update(&bound_tex);
-                        rdr_gate.render(&render_st, |mut tess_gate| {
-                            tess_gate.render(&tess);
-                        });
-                    });
-                },
-            );
-            surface.swap_buffers();
+            surface
+                .new_pipeline_gate()
+                .pipeline(&back_buffer, &pipeline_st, |pipeline, mut shd_gate| {
+                    let bound_tex = pipeline.bind_texture(&mut tex)?;
+                    shd_gate.shade(&mut program, |mut iface, uni, mut rdr_gate| {
+                        iface.set(&uni.tex, bound_tex.binding());
+                        //iface.tex.update(&bound_tex);
+                        rdr_gate.render(&render_st, |mut tess_gate| tess_gate.render(&tess))
+                    })
+                })
+                .assume();
+            surface.window.swap_buffers();
         }
     }
 
