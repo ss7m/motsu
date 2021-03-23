@@ -10,7 +10,7 @@ use luminance::shader::Uniform;
 use luminance::tess::{Mode, Tess, TessBuilder};
 use luminance::texture::{Dim2, GenMipmaps, Sampler, Texture};
 use luminance_derive::{Semantics, UniformInterface, Vertex};
-use luminance_glfw::GlfwSurface;
+use luminance_glfw::{GL33Context, GlfwSurface};
 use luminance_windowing::WindowOpt;
 //use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowDim, WindowEvent, WindowOpt};
 use png_rs::image::*;
@@ -23,7 +23,7 @@ use std::process::exit;
 
 const VS: &str = include_str!("texture-vs.glsl");
 const FS: &str = include_str!("texture-fs.glsl");
-type GlfwBackend = <GlfwSurface as GraphicsContext>::Backend;
+type GlfwBackend = <GL33Context as GraphicsContext>::Backend;
 
 #[derive(Copy, Clone, Debug, Semantics)]
 pub enum VertexSemantics {
@@ -184,7 +184,7 @@ fn make_texture(
     display_image: &Image<RGBA>,
 ) -> Texture<GlfwBackend, Dim2, NormRGBA8UI> {
     let mut tex = Texture::new(
-        surface,
+        &mut surface.context,
         [display_image.width() as u32, display_image.height() as u32],
         0,
         Sampler::default(),
@@ -196,8 +196,8 @@ fn make_texture(
 }
 
 fn make_tess(surface: &mut GlfwSurface, display_image: &Image<RGBA>) -> Tess<GlfwBackend, Vertex> {
-    let (width, height) = surface.window.get_size();
-    TessBuilder::new(surface)
+    let (width, height) = surface.context.window.get_size();
+    TessBuilder::new(&mut surface.context)
         .set_vertices(calculate_vertices(
             display_image.width(),
             display_image.height(),
@@ -228,6 +228,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
     let mut crop_amt_bottom = 0;
 
     let mut program = surface
+        .context
         .new_shader_program::<(), (), ShaderInterface>()
         .from_strings(VS, None, None, FS)
         .expect("Program failed")
@@ -242,7 +243,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
         .enable_clear_color(true);
 
     'app: loop {
-        surface.window.glfw.poll_events();
+        surface.context.window.glfw.poll_events();
         for (_, event) in surface.events_rx.try_iter() {
             // Nothing needs to happen on key release
             if let WindowEvent::Key(_, _, Action::Release, _) = event {
@@ -309,11 +310,12 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
             display_image =
                 image.crop(crop_amt_left, crop_amt_right, crop_amt_top, crop_amt_bottom);
             let tess = make_tess(&mut surface, &display_image);
-            let back_buffer = surface.back_buffer().unwrap();
+            let back_buffer = surface.context.back_buffer().unwrap();
             let mut tex = make_texture(&mut surface, &display_image);
             redraw = false;
 
             surface
+                .context
                 .new_pipeline_gate()
                 .pipeline(&back_buffer, &pipeline_st, |pipeline, mut shd_gate| {
                     let bound_tex = pipeline.bind_texture(&mut tex)?;
@@ -324,7 +326,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
                     })
                 })
                 .assume();
-            surface.window.swap_buffers();
+            surface.context.window.swap_buffers();
         }
     }
 
