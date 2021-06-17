@@ -253,11 +253,8 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
             // TODO: figure out a clever way to reduce code duplication
             redraw = true;
             match event {
-                WindowEvent::Close
-                | WindowEvent::Key(Key::Escape, _, _, _)
-                | WindowEvent::Key(Key::Q, _, _, _) => break 'app,
-                WindowEvent::Key(Key::Up, _, _, modifiers)
-                | WindowEvent::Key(Key::K, _, _, modifiers) => {
+                WindowEvent::Close | WindowEvent::Key(Key::Escape | Key::Q, _, _, _) => break 'app,
+                WindowEvent::Key(Key::K | Key::Up, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
                     if modifiers.contains(Modifiers::Shift) {
                         crop_amt_top -= min(delta, crop_amt_top);
@@ -266,8 +263,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
                             min(delta, image.height() - crop_amt_top - crop_amt_bottom - 1);
                     }
                 }
-                WindowEvent::Key(Key::Down, _, _, modifiers)
-                | WindowEvent::Key(Key::J, _, _, modifiers) => {
+                WindowEvent::Key(Key::J | Key::Down, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
                     if modifiers.contains(Modifiers::Shift) {
                         crop_amt_bottom -= min(delta, crop_amt_bottom);
@@ -276,8 +272,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
                             min(delta, image.height() - crop_amt_top - crop_amt_bottom - 1);
                     }
                 }
-                WindowEvent::Key(Key::Left, _, _, modifiers)
-                | WindowEvent::Key(Key::H, _, _, modifiers) => {
+                WindowEvent::Key(Key::H | Key::Left, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
                     if modifiers.contains(Modifiers::Shift) {
                         crop_amt_left -= min(delta, crop_amt_left);
@@ -286,8 +281,7 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
                             min(delta, image.width() - crop_amt_left - crop_amt_right - 1);
                     }
                 }
-                WindowEvent::Key(Key::Right, _, _, modifiers)
-                | WindowEvent::Key(Key::L, _, _, modifiers) => {
+                WindowEvent::Key(Key::L | Key::Right, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
                     if modifiers.contains(Modifiers::Shift) {
                         crop_amt_right -= min(delta, crop_amt_right);
