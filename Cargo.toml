@@ -1,5 +1,5 @@
 [package]
-name = "png-rs"
+name = "motsu"
 version = "0.1.0"
 authors = ["Sam Barr <samfbarr@outlook.com>"]
 edition = "2018"

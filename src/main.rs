@@ -13,8 +13,8 @@ use luminance_derive::{Semantics, UniformInterface, Vertex};
 use luminance_glfw::{GL33Context, GlfwSurface};
 use luminance_windowing::WindowOpt;
 //use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowDim, WindowEvent, WindowOpt};
-use png_rs::image::*;
-use png_rs::pixel::*;
+use motsu::image::*;
+use motsu::pixel::*;
 use std::cmp::min;
 use std::process::exit;
 
@@ -183,13 +183,16 @@ fn make_texture(
     surface: &mut GlfwSurface,
     display_image: &Image<RGBA>,
 ) -> Texture<GlfwBackend, Dim2, NormRGBA8UI> {
-    let mut tex = Texture::new(
-        &mut surface.context,
-        [display_image.width() as u32, display_image.height() as u32],
-        0,
-        Sampler::default(),
-    )
-    .expect("luminance texture creation failed");
+    let mut tex = surface
+        .context
+        .new_texture_raw(
+            [display_image.width() as u32, display_image.height() as u32],
+            0,
+            Sampler::default(),
+            GenMipmaps::No,
+            &display_image.data(),
+        )
+        .expect("luminance texture creation failed");
     tex.upload_raw(GenMipmaps::No, &display_image.data())
         .unwrap();
     tex
