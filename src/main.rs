@@ -1,6 +1,7 @@
 use argh::FromArgs;
 //use glfw::Modifiers;
 use glfw::{Action, Context as _, Key, Modifiers, WindowEvent};
+use image::RgbaImage;
 use luminance::blending::{Blending, Equation, Factor};
 use luminance::context::GraphicsContext;
 use luminance::pipeline::{PipelineState, TextureBinding};
@@ -12,9 +13,7 @@ use luminance::texture::{Dim2, GenMipmaps, Sampler, Texture};
 use luminance_derive::{Semantics, UniformInterface, Vertex};
 use luminance_glfw::{GL33Context, GlfwSurface};
 use luminance_windowing::WindowOpt;
-//use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowDim, WindowEvent, WindowOpt};
-use motsu::image::*;
-use motsu::pixel::*;
+
 use std::cmp::min;
 use std::process::exit;
 
@@ -51,33 +50,40 @@ struct PNGArgs {
     #[argh(switch, short = 'i')]
     in_place: bool,
 
-    /// encoding to use when saving image
-    /// (gray, rgb, graya, rgba)
-    #[argh(option)]
-    encoding: Option<String>,
-
     /// output file
     #[argh(option, short = 'o')]
     output: Option<String>,
 
     /// crop left
     #[argh(option, short = 'l')]
-    crop_left: Option<usize>,
+    crop_left: Option<u32>,
 
     /// crop right
     #[argh(option, short = 'r')]
-    crop_right: Option<usize>,
+    crop_right: Option<u32>,
 
     /// crop top
     #[argh(option, short = 't')]
-    crop_top: Option<usize>,
+    crop_top: Option<u32>,
 
     /// crop bottom
     #[argh(option, short = 'b')]
-    crop_bottom: Option<usize>,
+    crop_bottom: Option<u32>,
 
     #[argh(positional)]
     input: String,
+}
+
+fn crop_image(
+    image: &mut RgbaImage,
+    crop_left: u32,
+    crop_right: u32,
+    crop_top: u32,
+    crop_bottom: u32,
+) -> RgbaImage {
+    let width = image.width() - crop_left - crop_right;
+    let height = image.height() - crop_top - crop_bottom;
+    image::imageops::crop(image, crop_left, crop_top, width, height).to_image()
 }
 
 fn main() {
@@ -93,14 +99,16 @@ fn main() {
         }
     }
 
-    let image = match Image::<RGBA>::load_from_png(&args.input) {
-        Ok(image) => image,
+    let mut image: RgbaImage = match image::open(&args.input) {
+        Ok(im) => im.into_rgba8(),
         Err(e) => {
             eprintln!("{}", e);
             exit(1);
         }
-    }
-    .crop(
+    };
+
+    image = crop_image(
+        &mut image,
         args.crop_left.unwrap_or(0),
         args.crop_right.unwrap_or(0),
         args.crop_top.unwrap_or(0),
@@ -110,18 +118,9 @@ fn main() {
     let output_image = if args.quiet {
         image
     } else {
-        let surface = GlfwSurface::new_gl33("PNG", WindowOpt::default());
-        //let surface = GlfwSurface::new(
-        //    WindowDim::Windowed {
-        //        width: image.width() as u32,
-        //        height: image.height() as u32,
-        //    },
-        //    "PNG",
-        //    WindowOpt::default(),
-        //);
-
+        let surface = GlfwSurface::new_gl33("motsu", WindowOpt::default());
         match surface {
-            Ok(surface) => main_loop(surface, image),
+            Ok(surface) => main_loop(surface, &mut image),
             Err(e) => {
                 eprintln!("cannot create graphics surface:\n{}", e);
                 exit(1);
@@ -129,21 +128,10 @@ fn main() {
         }
     };
 
-    if let Some(output) = args.output {
-        let result = if let Some(encoding) = args.encoding {
-            match encoding.to_ascii_lowercase().as_str() {
-                "gray" => output_image.convert::<Gray>().write_to_png(&output),
-                "rgb" => output_image.convert::<RGB>().write_to_png(&output),
-                "graya" => output_image.convert::<GrayA>().write_to_png(&output),
-                "rgba" => output_image.convert::<RGBA>().write_to_png(&output),
-                _ => Err(format!("Unknown encoding: {}", encoding)),
-            }
-        } else {
-            output_image.convert::<RGBA>().write_to_png(&output)
-        };
-
-        if let Err(e) = result {
+    if let Some(outfile) = args.output {
+        if let Err(e) = output_image.save(outfile) {
             eprintln!("{}", e);
+            exit(1);
         }
     }
 }
@@ -181,29 +169,26 @@ fn calculate_vertices(
 
 fn make_texture(
     surface: &mut GlfwSurface,
-    display_image: &Image<RGBA>,
+    display_image: &RgbaImage,
 ) -> Texture<GlfwBackend, Dim2, NormRGBA8UI> {
-    let mut tex = surface
+    surface
         .context
         .new_texture_raw(
             [display_image.width() as u32, display_image.height() as u32],
             0,
             Sampler::default(),
             GenMipmaps::No,
-            &display_image.data(),
+            display_image.as_raw(),
         )
-        .expect("luminance texture creation failed");
-    tex.upload_raw(GenMipmaps::No, &display_image.data())
-        .unwrap();
-    tex
+        .expect("luminance texture creation failed")
 }
 
-fn make_tess(surface: &mut GlfwSurface, display_image: &Image<RGBA>) -> Tess<GlfwBackend, Vertex> {
+fn make_tess(surface: &mut GlfwSurface, display_image: &RgbaImage) -> Tess<GlfwBackend, Vertex> {
     let (width, height) = surface.context.window.get_size();
     TessBuilder::new(&mut surface.context)
         .set_vertices(calculate_vertices(
-            display_image.width(),
-            display_image.height(),
+            display_image.width() as usize,
+            display_image.height() as usize,
             width as u32,
             height as u32,
         ))
@@ -212,7 +197,7 @@ fn make_tess(surface: &mut GlfwSurface, display_image: &Image<RGBA>) -> Tess<Glf
         .unwrap()
 }
 
-fn calculate_delta(modifiers: Modifiers) -> usize {
+fn calculate_delta(modifiers: Modifiers) -> u32 {
     if modifiers.contains(Modifiers::Control) {
         10
     } else {
@@ -220,7 +205,7 @@ fn calculate_delta(modifiers: Modifiers) -> usize {
     }
 }
 
-fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
+fn main_loop(mut surface: GlfwSurface, image: &mut RgbaImage) -> RgbaImage {
     // setup for loop
     //
     let mut display_image = image.clone();
@@ -304,8 +289,13 @@ fn main_loop(mut surface: GlfwSurface, image: Image<RGBA>) -> Image<RGBA> {
         }
 
         if redraw {
-            display_image =
-                image.crop(crop_amt_left, crop_amt_right, crop_amt_top, crop_amt_bottom);
+            display_image = crop_image(
+                image,
+                crop_amt_left,
+                crop_amt_right,
+                crop_amt_top,
+                crop_amt_bottom,
+            );
             let tess = make_tess(&mut surface, &display_image);
             let back_buffer = surface.context.back_buffer().unwrap();
             let mut tex = make_texture(&mut surface, &display_image);

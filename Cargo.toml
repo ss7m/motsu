@@ -15,6 +15,11 @@ luminance-glfw = "*"
 glfw = "*"
 argh = "*"
 
+[dependencies.image]
+version = "*"
+default-features = false
+features = [ "jpeg", "png" ]
+
 [profile.release]
 lto = "fat"
 codegen-units = 1
