@@ -28,11 +28,20 @@ type GlfwBackend = <GL33Context as GraphicsContext>::Backend;
 pub enum VertexSemantics {
     #[sem(name = "position", repr = "[f32; 2]", wrapper = "VertexPosition")]
     Position,
+
+    #[sem(name = "crop_left", repr = "f32", wrapper = "CropLeft")]
+    CropLeft,
+    #[sem(name = "crop_right", repr = "f32", wrapper = "CropRight")]
+    CropRight,
+    #[sem(name = "crop_top", repr = "f32", wrapper = "CropTop")]
+    CropTop,
+    #[sem(name = "crop_bottom", repr = "f32", wrapper = "CropBottom")]
+    CropBottom,
 }
 
 #[derive(Copy, Clone, Vertex, Debug)]
 #[vertex(sem = "VertexSemantics")]
-pub struct Vertex(VertexPosition);
+pub struct Vertex(VertexPosition, CropLeft, CropRight, CropTop, CropBottom);
 
 #[derive(UniformInterface)]
 struct ShaderInterface {
@@ -120,7 +129,7 @@ fn main() {
     } else {
         let surface = GlfwSurface::new_gl33("motsu", WindowOpt::default());
         match surface {
-            Ok(surface) => main_loop(surface, &mut image),
+            Ok(surface) => main_loop(surface, image),
             Err(e) => {
                 eprintln!("cannot create graphics surface:\n{}", e);
                 exit(1);
@@ -137,60 +146,85 @@ fn main() {
 }
 
 fn calculate_vertices(
-    image_width: usize,
-    image_height: usize,
+    image_width: u32,
+    image_height: u32,
     buffer_width: u32,
     buffer_height: u32,
+    crop_left: u32,
+    crop_right: u32,
+    crop_top: u32,
+    crop_bottom: u32,
 ) -> [Vertex; 4] {
+    let crop_left: f32 = crop_left as f32;
+    let crop_right: f32 = crop_right as f32;
+    let crop_top: f32 = crop_top as f32;
+    let crop_bottom: f32 = crop_bottom as f32;
     let image_width: f32 = image_width as f32;
     let image_height: f32 = image_height as f32;
     let buffer_width: f32 = buffer_width as f32;
     let buffer_height: f32 = buffer_height as f32;
 
-    let width_percent = if image_width <= buffer_width {
-        image_width / buffer_width
+    let width = if image_width <= buffer_width {
+        (image_width - crop_left - crop_right) / buffer_width
     } else {
         1.0
     };
 
-    let height_percent = if image_height <= buffer_height {
-        image_height / buffer_height
+    let height = if image_height <= buffer_height {
+        (image_height - crop_top - crop_bottom) / buffer_height
     } else {
         1.0
     };
+
+    let cl = CropLeft::new(crop_left / image_width);
+    let cr = CropRight::new(1.0 - crop_right / image_width);
+    let ct = CropTop::new(crop_top / image_height);
+    let cb = CropBottom::new(1.0 - crop_bottom / image_height);
 
     [
-        Vertex(VertexPosition::new([-width_percent, -height_percent])),
-        Vertex(VertexPosition::new([-width_percent, height_percent])),
-        Vertex(VertexPosition::new([width_percent, height_percent])),
-        Vertex(VertexPosition::new([width_percent, -height_percent])),
+        Vertex(VertexPosition::new([-width, -height]), cl, cr, ct, cb),
+        Vertex(VertexPosition::new([-width, height]), cl, cr, ct, cb),
+        Vertex(VertexPosition::new([width, height]), cl, cr, ct, cb),
+        Vertex(VertexPosition::new([width, -height]), cl, cr, ct, cb),
     ]
 }
 
 fn make_texture(
     surface: &mut GlfwSurface,
-    display_image: &RgbaImage,
+    image: &RgbaImage,
 ) -> Texture<GlfwBackend, Dim2, NormRGBA8UI> {
-    surface
+    let tex = surface
         .context
         .new_texture_raw(
-            [display_image.width() as u32, display_image.height() as u32],
+            [image.width() as u32, image.height() as u32],
             0,
             Sampler::default(),
             GenMipmaps::No,
-            display_image.as_raw(),
+            image.as_raw(),
         )
-        .expect("luminance texture creation failed")
+        .expect("luminance texture creation failed");
+    tex
 }
 
-fn make_tess(surface: &mut GlfwSurface, display_image: &RgbaImage) -> Tess<GlfwBackend, Vertex> {
+fn make_tess(
+    surface: &mut GlfwSurface,
+    image: &RgbaImage,
+    crop_left: u32,
+    crop_right: u32,
+    crop_top: u32,
+    crop_bottom: u32,
+) -> Tess<GlfwBackend, Vertex> {
     let (width, height) = surface.context.window.get_size();
     TessBuilder::new(&mut surface.context)
         .set_vertices(calculate_vertices(
-            display_image.width() as usize,
-            display_image.height() as usize,
+            image.width(),
+            image.height(),
             width as u32,
             height as u32,
+            crop_left,
+            crop_right,
+            crop_top,
+            crop_bottom,
         ))
         .set_mode(Mode::TriangleFan)
         .build()
@@ -205,15 +239,14 @@ fn calculate_delta(modifiers: Modifiers) -> u32 {
     }
 }
 
-fn main_loop(mut surface: GlfwSurface, image: &mut RgbaImage) -> RgbaImage {
+fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
     // setup for loop
     //
-    let mut display_image = image.clone();
     let mut redraw = false;
-    let mut crop_amt_left = 0;
-    let mut crop_amt_right = 0;
-    let mut crop_amt_top = 0;
-    let mut crop_amt_bottom = 0;
+    let mut crop_left = 0;
+    let mut crop_right = 0;
+    let mut crop_top = 0;
+    let mut crop_bottom = 0;
 
     let mut program = surface
         .context
@@ -230,6 +263,8 @@ fn main_loop(mut surface: GlfwSurface, image: &mut RgbaImage) -> RgbaImage {
         .set_clear_color([1.0, 0.0, 1.0, 1.0])
         .enable_clear_color(true);
 
+    let mut tex = make_texture(&mut surface, &image);
+
     'app: loop {
         surface.context.window.glfw.poll_events();
         for (_, event) in surface.events_rx.try_iter() {
@@ -245,60 +280,55 @@ fn main_loop(mut surface: GlfwSurface, image: &mut RgbaImage) -> RgbaImage {
                 WindowEvent::Key(Key::K | Key::Up, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
                     if modifiers.contains(Modifiers::Shift) {
-                        crop_amt_top -= min(delta, crop_amt_top);
+                        crop_top -= min(delta, crop_top);
                     } else {
-                        crop_amt_bottom +=
-                            min(delta, image.height() - crop_amt_top - crop_amt_bottom - 1);
+                        crop_bottom += min(delta, image.height() - crop_top - crop_bottom - 1);
                     }
                 }
                 WindowEvent::Key(Key::J | Key::Down, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
                     if modifiers.contains(Modifiers::Shift) {
-                        crop_amt_bottom -= min(delta, crop_amt_bottom);
+                        crop_bottom -= min(delta, crop_bottom);
                     } else {
-                        crop_amt_top +=
-                            min(delta, image.height() - crop_amt_top - crop_amt_bottom - 1);
+                        crop_top += min(delta, image.height() - crop_top - crop_bottom - 1);
                     }
                 }
                 WindowEvent::Key(Key::H | Key::Left, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
                     if modifiers.contains(Modifiers::Shift) {
-                        crop_amt_left -= min(delta, crop_amt_left);
+                        crop_left -= min(delta, crop_left);
                     } else {
-                        crop_amt_right +=
-                            min(delta, image.width() - crop_amt_left - crop_amt_right - 1);
+                        crop_right += min(delta, image.width() - crop_left - crop_right - 1);
                     }
                 }
                 WindowEvent::Key(Key::L | Key::Right, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
                     if modifiers.contains(Modifiers::Shift) {
-                        crop_amt_right -= min(delta, crop_amt_right);
+                        crop_right -= min(delta, crop_right);
                     } else {
-                        crop_amt_left +=
-                            min(delta, image.width() - crop_amt_left - crop_amt_right - 1);
+                        crop_left += min(delta, image.width() - crop_left - crop_right - 1);
                     }
                 }
                 WindowEvent::Key(Key::R, _, Action::Press, _) => {
-                    crop_amt_left = 0;
-                    crop_amt_right = 0;
-                    crop_amt_top = 0;
-                    crop_amt_bottom = 0;
+                    crop_left = 0;
+                    crop_right = 0;
+                    crop_top = 0;
+                    crop_bottom = 0;
                 }
                 _ => {}
             }
         }
 
         if redraw {
-            display_image = crop_image(
-                image,
-                crop_amt_left,
-                crop_amt_right,
-                crop_amt_top,
-                crop_amt_bottom,
-            );
-            let tess = make_tess(&mut surface, &display_image);
             let back_buffer = surface.context.back_buffer().unwrap();
-            let mut tex = make_texture(&mut surface, &display_image);
+            let tess = make_tess(
+                &mut surface,
+                &image,
+                crop_left,
+                crop_right,
+                crop_top,
+                crop_bottom,
+            );
             redraw = false;
 
             surface
@@ -317,5 +347,5 @@ fn main_loop(mut surface: GlfwSurface, image: &mut RgbaImage) -> RgbaImage {
         }
     }
 
-    display_image
+    crop_image(&mut image, crop_left, crop_right, crop_top, crop_bottom)
 }
