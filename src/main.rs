@@ -17,8 +17,13 @@ use luminance_windowing::WindowOpt;
 use std::cmp::min;
 use std::process::exit;
 
-// Idea: add an id to the vertex to determine v_uv instead of
-// guessing based on the position
+#[derive(Clone, Copy, Default)]
+struct Crop {
+    left: u32,
+    right: u32,
+    top: u32,
+    bottom: u32,
+}
 
 const VS: &str = include_str!("texture-vs.glsl");
 const FS: &str = include_str!("texture-fs.glsl");
@@ -31,10 +36,13 @@ pub enum VertexSemantics {
 
     #[sem(name = "crop_left", repr = "f32", wrapper = "CropLeft")]
     CropLeft,
+
     #[sem(name = "crop_right", repr = "f32", wrapper = "CropRight")]
     CropRight,
+
     #[sem(name = "crop_top", repr = "f32", wrapper = "CropTop")]
     CropTop,
+
     #[sem(name = "crop_bottom", repr = "f32", wrapper = "CropBottom")]
     CropBottom,
 }
@@ -83,16 +91,10 @@ struct PNGArgs {
     input: String,
 }
 
-fn crop_image(
-    image: &mut RgbaImage,
-    crop_left: u32,
-    crop_right: u32,
-    crop_top: u32,
-    crop_bottom: u32,
-) -> RgbaImage {
-    let width = image.width() - crop_left - crop_right;
-    let height = image.height() - crop_top - crop_bottom;
-    image::imageops::crop(image, crop_left, crop_top, width, height).to_image()
+fn crop_image(image: &mut RgbaImage, crop: Crop) -> RgbaImage {
+    let width = image.width() - crop.left - crop.right;
+    let height = image.height() - crop.top - crop.bottom;
+    image::imageops::crop(image, crop.left, crop.top, width, height).to_image()
 }
 
 fn main() {
@@ -118,10 +120,12 @@ fn main() {
 
     image = crop_image(
         &mut image,
-        args.crop_left.unwrap_or(0),
-        args.crop_right.unwrap_or(0),
-        args.crop_top.unwrap_or(0),
-        args.crop_bottom.unwrap_or(0),
+        Crop {
+            left: args.crop_left.unwrap_or(0),
+            right: args.crop_right.unwrap_or(0),
+            top: args.crop_top.unwrap_or(0),
+            bottom: args.crop_bottom.unwrap_or(0),
+        },
     );
 
     let output_image = if args.quiet {
@@ -150,15 +154,12 @@ fn calculate_vertices(
     image_height: u32,
     buffer_width: u32,
     buffer_height: u32,
-    crop_left: u32,
-    crop_right: u32,
-    crop_top: u32,
-    crop_bottom: u32,
+    crop: Crop,
 ) -> [Vertex; 4] {
-    let crop_left: f32 = crop_left as f32;
-    let crop_right: f32 = crop_right as f32;
-    let crop_top: f32 = crop_top as f32;
-    let crop_bottom: f32 = crop_bottom as f32;
+    let crop_left: f32 = crop.left as f32;
+    let crop_right: f32 = crop.right as f32;
+    let crop_top: f32 = crop.top as f32;
+    let crop_bottom: f32 = crop.bottom as f32;
     let image_width: f32 = image_width as f32;
     let image_height: f32 = image_height as f32;
     let buffer_width: f32 = buffer_width as f32;
@@ -212,10 +213,7 @@ fn make_texture(
 fn make_tess(
     surface: &mut GlfwSurface,
     image: &RgbaImage,
-    crop_left: u32,
-    crop_right: u32,
-    crop_top: u32,
-    crop_bottom: u32,
+    crop: Crop,
 ) -> Tess<GlfwBackend, Vertex> {
     let (width, height) = surface.context.window.get_size();
     TessBuilder::new(&mut surface.context)
@@ -224,10 +222,7 @@ fn make_tess(
             image.height(),
             width as u32,
             height as u32,
-            crop_left,
-            crop_right,
-            crop_top,
-            crop_bottom,
+            crop,
         ))
         .set_mode(Mode::TriangleFan)
         .build()
@@ -246,10 +241,7 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
     // setup for loop
     //
     let mut redraw = true;
-    let mut crop_left = 0;
-    let mut crop_right = 0;
-    let mut crop_top = 0;
-    let mut crop_bottom = 0;
+    let mut crop: Crop = Default::default();
 
     let mut program = surface
         .context
@@ -284,44 +276,41 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
                 WindowEvent::Key(Key::K | Key::Up, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
                     if modifiers.contains(Modifiers::Shift) {
-                        crop_top -= min(delta, crop_top);
+                        crop.top -= min(delta, crop.top);
                     } else {
-                        crop_bottom += min(delta, image.height() - crop_top - crop_bottom - 1);
+                        crop.bottom += min(delta, image.height() - crop.top - crop.bottom - 1);
                     }
                     redraw = true;
                 }
                 WindowEvent::Key(Key::J | Key::Down, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
                     if modifiers.contains(Modifiers::Shift) {
-                        crop_bottom -= min(delta, crop_bottom);
+                        crop.bottom -= min(delta, crop.bottom);
                     } else {
-                        crop_top += min(delta, image.height() - crop_top - crop_bottom - 1);
+                        crop.top += min(delta, image.height() - crop.top - crop.bottom - 1);
                     }
                     redraw = true;
                 }
                 WindowEvent::Key(Key::H | Key::Left, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
                     if modifiers.contains(Modifiers::Shift) {
-                        crop_left -= min(delta, crop_left);
+                        crop.left -= min(delta, crop.left);
                     } else {
-                        crop_right += min(delta, image.width() - crop_left - crop_right - 1);
+                        crop.right += min(delta, image.width() - crop.left - crop.right - 1);
                     }
                     redraw = true;
                 }
                 WindowEvent::Key(Key::L | Key::Right, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
                     if modifiers.contains(Modifiers::Shift) {
-                        crop_right -= min(delta, crop_right);
+                        crop.right -= min(delta, crop.right);
                     } else {
-                        crop_left += min(delta, image.width() - crop_left - crop_right - 1);
+                        crop.left += min(delta, image.width() - crop.left - crop.right - 1);
                     }
                     redraw = true;
                 }
                 WindowEvent::Key(Key::R, _, Action::Press, _) => {
-                    crop_left = 0;
-                    crop_right = 0;
-                    crop_top = 0;
-                    crop_bottom = 0;
+                    crop = Default::default();
                     redraw = true;
                 }
                 _ => {}
@@ -330,14 +319,7 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
 
         if redraw {
             let back_buffer = surface.context.back_buffer().unwrap();
-            let tess = make_tess(
-                &mut surface,
-                &image,
-                crop_left,
-                crop_right,
-                crop_top,
-                crop_bottom,
-            );
+            let tess = make_tess(&mut surface, &image, crop);
             redraw = false;
 
             surface
@@ -355,5 +337,5 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
         }
     }
 
-    crop_image(&mut image, crop_left, crop_right, crop_top, crop_bottom)
+    crop_image(&mut image, crop)
 }
