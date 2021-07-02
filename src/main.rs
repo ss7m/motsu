@@ -245,7 +245,7 @@ fn calculate_delta(modifiers: Modifiers) -> u32 {
 fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
     // setup for loop
     //
-    let mut redraw = false;
+    let mut redraw = true;
     let mut crop_left = 0;
     let mut crop_right = 0;
     let mut crop_top = 0;
@@ -276,8 +276,6 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
                 continue;
             }
 
-            // TODO: figure out a clever way to reduce code duplication
-            redraw = true;
             match event {
                 WindowEvent::Close | WindowEvent::Key(Key::Escape | Key::Q, _, _, _) => break 'app,
                 WindowEvent::Key(Key::K | Key::Up, _, _, modifiers) => {
@@ -287,6 +285,7 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
                     } else {
                         crop_bottom += min(delta, image.height() - crop_top - crop_bottom - 1);
                     }
+                    redraw = true;
                 }
                 WindowEvent::Key(Key::J | Key::Down, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
@@ -295,6 +294,7 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
                     } else {
                         crop_top += min(delta, image.height() - crop_top - crop_bottom - 1);
                     }
+                    redraw = true;
                 }
                 WindowEvent::Key(Key::H | Key::Left, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
@@ -303,6 +303,7 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
                     } else {
                         crop_right += min(delta, image.width() - crop_left - crop_right - 1);
                     }
+                    redraw = true;
                 }
                 WindowEvent::Key(Key::L | Key::Right, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
@@ -311,12 +312,14 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
                     } else {
                         crop_left += min(delta, image.width() - crop_left - crop_right - 1);
                     }
+                    redraw = true;
                 }
                 WindowEvent::Key(Key::R, _, Action::Press, _) => {
                     crop_left = 0;
                     crop_right = 0;
                     crop_top = 0;
                     crop_bottom = 0;
+                    redraw = true;
                 }
                 _ => {}
             }
