@@ -164,14 +164,17 @@ fn calculate_vertices(
     let buffer_width: f32 = buffer_width as f32;
     let buffer_height: f32 = buffer_height as f32;
 
-    let width = if image_width <= buffer_width {
-        (image_width - crop_left - crop_right) / buffer_width
+    let cropped_width = image_width - crop_left - crop_right;
+    let cropped_height = image_height - crop_top - crop_bottom;
+
+    let width = if cropped_width <= buffer_width {
+        cropped_width / buffer_width
     } else {
         1.0
     };
 
-    let height = if image_height <= buffer_height {
-        (image_height - crop_top - crop_bottom) / buffer_height
+    let height = if cropped_height <= buffer_height {
+        cropped_height / buffer_height
     } else {
         1.0
     };
@@ -338,7 +341,6 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
                     let bound_tex = pipeline.bind_texture(&mut tex)?;
                     shd_gate.shade(&mut program, |mut iface, uni, mut rdr_gate| {
                         iface.set(&uni.tex, bound_tex.binding());
-                        //iface.tex.update(&bound_tex);
                         rdr_gate.render(&render_st, |mut tess_gate| tess_gate.render(&tess))
                     })
                 })
