@@ -57,7 +57,14 @@ struct ShaderInterface {
 }
 
 #[derive(FromArgs, Debug)]
-/// png viewer and editor
+/// Image viewer and cropper. Use hjkl keys to crop image.
+///
+/// Hold CTRL to increase cropping speed, hold shift to uncrop a side.
+///
+/// Press q or escape to quit, and r to undo all cropping.
+///
+/// You may also click twice on the image to crop with the bounding rectangle
+/// of the two mouse clicks.
 struct PNGArgs {
     /// don't display the input image
     #[argh(switch, short = 'q')]
