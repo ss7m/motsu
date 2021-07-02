@@ -1,6 +1,6 @@
 use argh::FromArgs;
 //use glfw::Modifiers;
-use glfw::{Action, Context as _, Key, Modifiers, WindowEvent};
+use glfw::{Action, Context as _, Key, Modifiers, MouseButton, WindowEvent};
 use image::RgbaImage;
 use luminance::blending::{Blending, Equation, Factor};
 use luminance::context::GraphicsContext;
@@ -14,7 +14,7 @@ use luminance_derive::{Semantics, UniformInterface, Vertex};
 use luminance_glfw::{GL33Context, GlfwSurface};
 use luminance_windowing::WindowOpt;
 
-use std::cmp::min;
+use std::cmp::{max, min};
 use std::process::exit;
 
 #[derive(Clone, Copy, Default)]
@@ -239,9 +239,10 @@ fn calculate_delta(modifiers: Modifiers) -> u32 {
 
 fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
     // setup for loop
-    //
     let mut redraw = true;
     let mut crop: Crop = Default::default();
+    let mut mouse_position: (u32, u32) = (0, 0);
+    let mut mouse_click: (u32, u32) = (0, 0);
 
     let mut program = surface
         .context
@@ -311,7 +312,44 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
                 }
                 WindowEvent::Key(Key::R, _, Action::Press, _) => {
                     crop = Default::default();
+                    mouse_click = (0, 0);
                     redraw = true;
+                }
+                WindowEvent::CursorPos(x, y) => {
+                    mouse_position = (x as u32, y as u32);
+                }
+                WindowEvent::MouseButton(MouseButton::Button1, Action::Press, _) => {
+                    let (width, height) = surface.context.window.get_size();
+                    let im_width = (image.width() - crop.left - crop.right) as i32;
+                    let im_height = (image.height() - crop.top - crop.bottom) as i32;
+                    if mouse_click == (0, 0) {
+                        mouse_click = mouse_position;
+                    } else {
+                        let x1: i32 = mouse_click.0 as i32 - width / 2 + im_width / 2;
+                        let y1: i32 = mouse_click.1 as i32 - height / 2 + im_height / 2;
+                        let x2: i32 = mouse_position.0 as i32 - width / 2 + im_width / 2;
+                        let y2: i32 = mouse_position.1 as i32 - height / 2 + im_height / 2;
+
+                        if x1 < 0
+                            || x2 < 0
+                            || y1 < 0
+                            || y2 < 0
+                            || x1 > im_width
+                            || x2 > im_width
+                            || y1 > im_height
+                            || y2 > im_height
+                        {
+                            mouse_click = (0, 0);
+                            continue;
+                        }
+
+                        crop.left += min(x1, x2) as u32;
+                        crop.right += (im_width - max(x1, x2)) as u32;
+                        crop.top += min(y1, y2) as u32;
+                        crop.bottom += (im_height - max(y1, y2)) as u32;
+                        mouse_click = (0, 0);
+                        redraw = true;
+                    }
                 }
                 _ => {}
             }
