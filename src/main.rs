@@ -278,6 +278,9 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
 
             match event {
                 WindowEvent::Close | WindowEvent::Key(Key::Escape | Key::Q, _, _, _) => break 'app,
+                WindowEvent::Pos(_, _) | WindowEvent::Size(_, _) => {
+                    redraw = true;
+                }
                 WindowEvent::Key(Key::K | Key::Up, _, _, modifiers) => {
                     let delta = calculate_delta(modifiers);
                     if modifiers.contains(Modifiers::Shift) {
