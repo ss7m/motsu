@@ -263,7 +263,7 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
         dst: Factor::Zero,
     });
     let pipeline_st = PipelineState::default()
-        .set_clear_color([1.0, 0.0, 1.0, 1.0])
+        .set_clear_color([1.0, 1.0, 1.0, 1.0])
         .enable_clear_color(true);
 
     let mut tex = make_texture(&mut surface, &image);
@@ -278,7 +278,7 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
 
             match event {
                 WindowEvent::Close | WindowEvent::Key(Key::Escape | Key::Q, _, _, _) => break 'app,
-                WindowEvent::Pos(_, _) | WindowEvent::Size(_, _) => {
+                WindowEvent::Pos(_, _) | WindowEvent::Size(_, _) | WindowEvent::Focus(_) => {
                     redraw = true;
                 }
                 WindowEvent::Key(Key::K | Key::Up, _, _, modifiers) => {
@@ -329,26 +329,42 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
                     let (width, height) = surface.context.window.get_size();
                     let im_width = (image.width() - crop.left - crop.right) as i32;
                     let im_height = (image.height() - crop.top - crop.bottom) as i32;
+                    let disp_width = min(im_width, width);
+                    let disp_height = min(im_height, height);
                     if mouse_click == (0, 0) {
                         mouse_click = mouse_position;
+                    } else if mouse_click == mouse_position {
+                        continue;
                     } else {
-                        let x1: i32 = mouse_click.0 as i32 - width / 2 + im_width / 2;
-                        let y1: i32 = mouse_click.1 as i32 - height / 2 + im_height / 2;
-                        let x2: i32 = mouse_position.0 as i32 - width / 2 + im_width / 2;
-                        let y2: i32 = mouse_position.1 as i32 - height / 2 + im_height / 2;
+                        let x1: i32 = mouse_click.0 as i32 - width / 2 + disp_width / 2;
+                        let y1: i32 = mouse_click.1 as i32 - height / 2 + disp_height / 2;
+                        let x2: i32 = mouse_position.0 as i32 - width / 2 + disp_width / 2;
+                        let y2: i32 = mouse_position.1 as i32 - height / 2 + disp_height / 2;
 
                         if x1 < 0
                             || x2 < 0
                             || y1 < 0
                             || y2 < 0
-                            || x1 > im_width
-                            || x2 > im_width
-                            || y1 > im_height
-                            || y2 > im_height
+                            || x1 > disp_width
+                            || x2 > disp_width
+                            || y1 > disp_height
+                            || y2 > disp_height
                         {
                             mouse_click = (0, 0);
                             continue;
                         }
+
+                        let (x1, x2) = if width < im_width {
+                            (x1 * im_width / width, x2 * im_width / width)
+                        } else {
+                            (x1, x2)
+                        };
+
+                        let (y1, y2) = if height < im_height {
+                            (y1 * im_height / height, y2 * im_height / height)
+                        } else {
+                            (y1, y2)
+                        };
 
                         crop.left += min(x1, x2) as u32;
                         crop.right += (im_width - max(x1, x2)) as u32;
