@@ -94,6 +94,10 @@ struct PNGArgs {
     #[argh(option, short = 'b')]
     crop_bottom: Option<u32>,
 
+    /// scale
+    #[argh(option, short = 's')]
+    scale: Option<f64>,
+
     #[argh(positional)]
     input: String,
 }
@@ -146,6 +150,19 @@ fn main() {
                 exit(1);
             }
         }
+    };
+
+    let output_image = if let Some(scale) = args.scale {
+        let width = output_image.width() as f64;
+        let height = output_image.height() as f64;
+        image::imageops::resize(
+            &output_image,
+            (width * scale) as u32,
+            (height * scale) as u32,
+            image::imageops::FilterType::Lanczos3,
+        )
+    } else {
+        output_image
     };
 
     if let Some(outfile) = args.output {
