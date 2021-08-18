@@ -266,7 +266,7 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
     let mut redraw = true;
     let mut crop: Crop = Default::default();
     let mut mouse_position: (u32, u32) = (0, 0);
-    let mut mouse_click: (u32, u32) = (0, 0);
+    let mut mouse_click: Option<(u32, u32)> = None;
 
     let mut program = surface
         .context
@@ -336,7 +336,7 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
                 }
                 WindowEvent::Key(Key::R, _, Action::Press, _) => {
                     crop = Default::default();
-                    mouse_click = (0, 0);
+                    mouse_click = None;
                     redraw = true;
                 }
                 WindowEvent::CursorPos(x, y) => {
@@ -348,47 +348,49 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
                     let im_height = (image.height() - crop.top - crop.bottom) as i32;
                     let disp_width = min(im_width, width);
                     let disp_height = min(im_height, height);
-                    if mouse_click == (0, 0) {
-                        mouse_click = mouse_position;
-                    } else if mouse_click == mouse_position {
-                        continue;
-                    } else {
-                        let x1: i32 = mouse_click.0 as i32 - width / 2 + disp_width / 2;
-                        let y1: i32 = mouse_click.1 as i32 - height / 2 + disp_height / 2;
-                        let x2: i32 = mouse_position.0 as i32 - width / 2 + disp_width / 2;
-                        let y2: i32 = mouse_position.1 as i32 - height / 2 + disp_height / 2;
+                    match mouse_click {
+                        None => mouse_click = Some(mouse_position),
+                        Some(mc) => {
+                            if mc == mouse_position {
+                                continue;
+                            }
+                            let x1: i32 = mc.0 as i32 - width / 2 + disp_width / 2;
+                            let y1: i32 = mc.1 as i32 - height / 2 + disp_height / 2;
+                            let x2: i32 = mouse_position.0 as i32 - width / 2 + disp_width / 2;
+                            let y2: i32 = mouse_position.1 as i32 - height / 2 + disp_height / 2;
 
-                        if x1 < 0
-                            || x2 < 0
-                            || y1 < 0
-                            || y2 < 0
-                            || x1 > disp_width
-                            || x2 > disp_width
-                            || y1 > disp_height
-                            || y2 > disp_height
-                        {
-                            mouse_click = (0, 0);
-                            continue;
+                            if x1 < 0
+                                || x2 < 0
+                                || y1 < 0
+                                || y2 < 0
+                                || x1 > disp_width
+                                || x2 > disp_width
+                                || y1 > disp_height
+                                || y2 > disp_height
+                            {
+                                mouse_click = None;
+                                continue;
+                            }
+
+                            let (x1, x2) = if width < im_width {
+                                (x1 * im_width / width, x2 * im_width / width)
+                            } else {
+                                (x1, x2)
+                            };
+
+                            let (y1, y2) = if height < im_height {
+                                (y1 * im_height / height, y2 * im_height / height)
+                            } else {
+                                (y1, y2)
+                            };
+
+                            crop.left += min(x1, x2) as u32;
+                            crop.right += (im_width - max(x1, x2)) as u32;
+                            crop.top += min(y1, y2) as u32;
+                            crop.bottom += (im_height - max(y1, y2)) as u32;
+                            mouse_click = None;
+                            redraw = true;
                         }
-
-                        let (x1, x2) = if width < im_width {
-                            (x1 * im_width / width, x2 * im_width / width)
-                        } else {
-                            (x1, x2)
-                        };
-
-                        let (y1, y2) = if height < im_height {
-                            (y1 * im_height / height, y2 * im_height / height)
-                        } else {
-                            (y1, y2)
-                        };
-
-                        crop.left += min(x1, x2) as u32;
-                        crop.right += (im_width - max(x1, x2)) as u32;
-                        crop.top += min(y1, y2) as u32;
-                        crop.bottom += (im_height - max(y1, y2)) as u32;
-                        mouse_click = (0, 0);
-                        redraw = true;
                     }
                 }
                 _ => {}
