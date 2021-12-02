@@ -1,6 +1,7 @@
 use argh::FromArgs;
-//use glfw::Modifiers;
-use glfw::{Action, Context as _, Key, Modifiers, MouseButton, WindowEvent};
+use glfw::{
+    Action, Context as _, Key, Modifiers, MouseButton, SwapInterval, WindowEvent, WindowMode,
+};
 use image::RgbaImage;
 use luminance::blending::{Blending, Equation, Factor};
 use luminance::context::GraphicsContext;
@@ -9,10 +10,9 @@ use luminance::pixel::{NormRGBA8UI, NormUnsigned};
 use luminance::render_state::RenderState;
 use luminance::shader::Uniform;
 use luminance::tess::{Mode, Tess, TessBuilder};
-use luminance::texture::{Dim2, GenMipmaps, Sampler, Texture};
+use luminance::texture::{Dim2, Sampler, TexelUpload, Texture};
 use luminance_derive::{Semantics, UniformInterface, Vertex};
-use luminance_glfw::{GL33Context, GlfwSurface};
-use luminance_windowing::WindowOpt;
+use luminance_glfw::{GL33Context, GlfwSurface, GlfwSurfaceError};
 
 use std::cmp::{max, min};
 use std::process::exit;
@@ -142,7 +142,15 @@ fn main() {
     let output_image = if args.quiet {
         image
     } else {
-        let surface = GlfwSurface::new_gl33("motsu", WindowOpt::default());
+        let surface = GlfwSurface::new(|glfw| {
+            let (mut window, events) = glfw
+                .create_window(500, 500, "motsu", WindowMode::Windowed)
+                .ok_or(GlfwSurfaceError::UserError("Couldn't Open Window"))?;
+            window.make_current();
+            window.set_all_polling(true);
+            glfw.set_swap_interval(SwapInterval::Sync(1));
+            Ok((window, events))
+        });
         match surface {
             Ok(surface) => main_loop(surface, image),
             Err(e) => {
@@ -225,10 +233,11 @@ fn make_texture(
         .context
         .new_texture_raw(
             [image.width() as u32, image.height() as u32],
-            0,
             Sampler::default(),
-            GenMipmaps::No,
-            image.as_raw(),
+            TexelUpload::BaseLevel {
+                texels: image.as_raw(),
+                mipmaps: None,
+            },
         )
         .expect("luminance texture creation failed");
     tex
@@ -279,9 +288,7 @@ fn main_loop(mut surface: GlfwSurface, mut image: RgbaImage) -> RgbaImage {
         src: Factor::SrcAlpha,
         dst: Factor::Zero,
     });
-    let pipeline_st = PipelineState::default()
-        .set_clear_color([1.0, 1.0, 1.0, 1.0])
-        .enable_clear_color(true);
+    let pipeline_st = PipelineState::default().set_clear_color([1.0, 1.0, 1.0, 1.0]);
 
     let mut tex = make_texture(&mut surface, &image);
 

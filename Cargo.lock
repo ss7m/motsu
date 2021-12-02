@@ -10,9 +10,9 @@ checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
 
 [[package]]
 name = "argh"
-version = "0.1.5"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e7317a549bc17c5278d9e72bb6e62c6aa801ac2567048e39ebc1c194249323e"
+checksum = "f023c76cd7975f9969f8e29f0e461decbdc7f51048ce43427107a3d192f1c9bf"
 dependencies = [
  "argh_derive",
  "argh_shared",
@@ -20,9 +20,9 @@ dependencies = [
 
 [[package]]
 name = "argh_derive"
-version = "0.1.5"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60949c42375351e9442e354434b0cba2ac402c1237edf673cac3a4bf983b8d3c"
+checksum = "48ad219abc0c06ca788aface2e3a1970587e3413ab70acd20e54b6ec524c1f8f"
 dependencies = [
  "argh_shared",
  "heck",
@@ -33,9 +33,9 @@ dependencies = [
 
 [[package]]
 name = "argh_shared"
-version = "0.1.5"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a61eb019cb8f415d162cb9f12130ee6bbe9168b7d953c17f4ad049e4051ca00"
+checksum = "38de00daab4eac7d753e97697066238d67ce9d7e2d823ab4f72fe14af29f3f33"
 
 [[package]]
 name = "autocfg"
@@ -63,9 +63,9 @@ checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "cc"
-version = "1.0.69"
+version = "1.0.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e70cc2f62c6ce1868963827bd677764c62d07c3d9a3e1fb1177ee1a9ab199eb2"
+checksum = "22a9137b95ea06864e018375b72adfb7db6e6f68cfc8df5a04d00288050485ee"
 
 [[package]]
 name = "cfg-if"
@@ -75,9 +75,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "cmake"
-version = "0.1.45"
+version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb6210b637171dfba4cda12e579ac6dc73f5165ad56133e5d72ef3131f320855"
+checksum = "b7b858541263efe664aead4a5209a4ae5c5d2811167d4ed4ee0944503f8d2089"
 dependencies = [
  "cc",
 ]
@@ -90,12 +90,18 @@ checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
 name = "crc32fast"
-version = "1.2.1"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81156fece84ab6a9f2afdb109ce3ae577e42b1228441eded99bd77f627953b1a"
+checksum = "738c290dfaea84fc1ca15ad9c168d083b05a714e1efddd8edaab678dc28d2836"
 dependencies = [
  "cfg-if",
 ]
+
+[[package]]
+name = "cty"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
 
 [[package]]
 name = "deflate"
@@ -129,24 +135,23 @@ dependencies = [
 
 [[package]]
 name = "glfw"
-version = "0.41.0"
+version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbb254ad1715644ab078c94372405bf061358b97969635ef7b09cf6f9437843e"
+checksum = "06a3f9afbfd6576fca75be1e5cfc6db259b3a9b65844d34890b0711e82953605"
 dependencies = [
  "bitflags",
  "glfw-sys",
- "log",
  "objc",
- "raw-window-handle",
+ "raw-window-handle 0.3.4",
  "semver",
  "winapi",
 ]
 
 [[package]]
 name = "glfw-sys"
-version = "3.3.4"
+version = "3.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6161d9c57357d4e77622f1cde280e3909ee72ba978d5cb79fe7cfc2ceec8a24"
+checksum = "5b0cbb12e2dfac494316e91f6bf7cf070ccd9c61501a02f4af14d71222c9f67f"
 dependencies = [
  "cmake",
 ]
@@ -190,9 +195,9 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
 name = "libc"
-version = "0.2.99"
+version = "0.2.108"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7f823d141fe0a24df1e23b4af4e3c7ba9e5966ec514ea068c93024aa7deb765"
+checksum = "8521a1b57e76b1ec69af7599e75e38e7b7fad6610f037db8c79b127201b5d119"
 
 [[package]]
 name = "log"
@@ -205,11 +210,20 @@ dependencies = [
 
 [[package]]
 name = "luminance"
-version = "0.44.0"
+version = "0.44.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20b470035d9a1c13d8f4f0cf5c012ba522d1232ecce827fa902574ea634f314d"
+checksum = "53f17426227044c3fde0f81117f16234fce327200d00c6157c273ed6f1875891"
 dependencies = [
- "luminance-derive",
+ "luminance-derive 0.7.0",
+]
+
+[[package]]
+name = "luminance"
+version = "0.45.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfd5efcf7e0135fdfd45cd8dcb3ae64a1e4f8c4b988e128ce96f8e4989b2e506"
+dependencies = [
+ "luminance-derive 0.8.0",
 ]
 
 [[package]]
@@ -224,35 +238,55 @@ dependencies = [
 ]
 
 [[package]]
-name = "luminance-gl"
-version = "0.17.0"
+name = "luminance-derive"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf778578a4afbd0d61c6d807bc4ab88b502f40383bd1fa1ad9bf6bd31dade8b8"
+checksum = "f3cd298b8987127cf92e7ee547f4d90be766806197e1fb843f05a772948d169b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "luminance-gl"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae4bfaabc2d43c618f8021f896537ba3779f84977134dda3a40dbb761db7377b"
 dependencies = [
  "gl",
- "luminance",
+ "luminance 0.45.0",
+ "luminance-std140",
 ]
 
 [[package]]
 name = "luminance-glfw"
-version = "0.16.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba8c0f17ac19a7b2b92d1465ac0859039e937e1aa65b9d1252d438575d6e65e1"
+checksum = "ec57b20a151ef1f7ebcf400043a4b62f6755cc9c5cfeba51e5b6ffed64545e83"
 dependencies = [
  "gl",
  "glfw",
- "luminance",
+ "luminance 0.45.0",
  "luminance-gl",
- "luminance-windowing",
+]
+
+[[package]]
+name = "luminance-std140"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc674080f5b890f26b5c8a1e4b905476a956e95208fe999ca0a4c5a9c954ca02"
+dependencies = [
+ "luminance 0.45.0",
 ]
 
 [[package]]
 name = "luminance-windowing"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11704e4e6131156444a2208f38ad3bc936a183a38f6c32073db6de880a5cb488"
+checksum = "adaa37407eb4c4ee7257f95238242f06a883ab58962b5608ee2718e501c6fa11"
 dependencies = [
- "luminance",
+ "luminance 0.44.1",
 ]
 
 [[package]]
@@ -281,8 +315,8 @@ dependencies = [
  "glfw",
  "image",
  "libc",
- "luminance",
- "luminance-derive",
+ "luminance 0.45.0",
+ "luminance-derive 0.8.0",
  "luminance-glfw",
  "luminance-windowing",
 ]
@@ -351,29 +385,39 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.28"
+version = "1.0.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c7ed8b8c7b886ea3ed7dde405212185f423ab44682667c8c6dd14aa1d9f6612"
+checksum = "ba508cc11742c0dc5c1659771673afbab7a0efab23aa17e854cbab0837ed0b43"
 dependencies = [
  "unicode-xid",
 ]
 
 [[package]]
 name = "quote"
-version = "1.0.9"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3d0b9745dc2debf507c8422de05d7226cc1f0644216dfdfead988f9b1ab32a7"
+checksum = "38bc8cc6a5f2e3655e0899c1b848643b2562f853f114bfec7be120678e3ace05"
 dependencies = [
  "proc-macro2",
 ]
 
 [[package]]
 name = "raw-window-handle"
-version = "0.3.3"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a441a7a6c80ad6473bd4b74ec1c9a4c951794285bf941c2126f607c72e48211"
+checksum = "e28f55143d0548dad60bb4fbdc835a3d7ac6acc3324506450c5fdd6e42903a76"
 dependencies = [
  "libc",
+ "raw-window-handle 0.4.2",
+]
+
+[[package]]
+name = "raw-window-handle"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fba75eee94a9d5273a68c9e1e105d9cffe1ef700532325788389e5a83e2522b7"
+dependencies = [
+ "cty",
 ]
 
 [[package]]
@@ -393,9 +437,9 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "syn"
-version = "1.0.74"
+version = "1.0.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1873d832550d4588c3dbc20f01361ab00bfe741048f71e3fecf145a7cc18b29c"
+checksum = "8daf5dd0bb60cbd4137b1b587d2fc0ae729bc07cf01cd70b36a1ed5ade3b9d59"
 dependencies = [
  "proc-macro2",
  "quote",
