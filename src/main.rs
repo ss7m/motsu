@@ -143,9 +143,13 @@ fn main() {
         image
     } else {
         let surface = GlfwSurface::new(|glfw| {
-            let (mut window, events) = glfw
-                .create_window(500, 500, "motsu", WindowMode::Windowed)
-                .ok_or(GlfwSurfaceError::UserError("Couldn't Open Window"))?;
+            let (mut window, events) = glfw.with_primary_monitor(|glfw, mon| {
+                let (width, height) = mon
+                    .and_then(|m| m.get_video_mode())
+                    .map_or((500, 500), |v| (v.width / 2, v.height / 2));
+                glfw.create_window(width, height, "motsu", WindowMode::Windowed)
+                    .ok_or(GlfwSurfaceError::UserError("Couldn't Open Window"))
+            })?;
             window.make_current();
             window.set_all_polling(true);
             glfw.set_swap_interval(SwapInterval::Sync(1));
