@@ -240,7 +240,7 @@ fn make_texture(
             Sampler::default(),
             TexelUpload::BaseLevel {
                 texels: image.as_raw(),
-                mipmaps: None,
+                mipmaps: 0,
             },
         )
         .expect("luminance texture creation failed");
